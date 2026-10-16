@@ -401,7 +401,7 @@ function makeTwitchChatSegments(event, fallbackComment) {
   const fragments = Array.isArray(event && event.message && event.message.fragments) ? event.message.fragments : [];
   if (!fragments.length) return [{ type: 'text', text: fallbackComment || '' }];
   return fragments.slice(0, 100).map(fragment => {
-    const text = String(fragment && fragment.text || '').replace(/[\\u0000-\\u001f\\u007f]/g, ' ').slice(0, 500);
+    const text = String(fragment && fragment.text || '').replace(/[\u0000-\u001f\u007f]/g, ' ').slice(0, 500);
     const emote = fragment && fragment.emote;
     if (fragment && fragment.type === 'emote' && emote && /^[A-Za-z0-9_-]{1,80}$/.test(String(emote.id || ''))) {
       const format = Array.isArray(emote.format) && emote.format.includes('animated') ? 'animated' : 'default';
@@ -440,7 +440,7 @@ function trustedTwitchProfileImageUrl(value) {
 
 async function lookupTwitchProfileImage(userId) {
   const id = String(userId || '');
-  if (!/^\\d{1,25}$/.test(id)) return '';
+  if (!/^\d{1,25}$/.test(id)) return '';
   const cached = twitchProfileImageCache.get(id);
   if (cached && cached.expiresAt > Date.now()) return cached.url || '';
   if (twitchProfileLookupInFlight.has(id)) return twitchProfileLookupInFlight.get(id);
@@ -478,7 +478,7 @@ function requestTwitchProfileImage(item, userId) {
 }
 
 function parseTwitchVoiceCommand(comment) {
-  const match = String(comment || '').match(/^(?:!voice|\\/voice)(?:\\s+([\\s\\S]*))?$/i);
+  const match = String(comment || '').match(/^(?:!voice|\/voice)(?:\s+([\s\S]*))?$/i);
   if (!match) return null;
   return { text: cleanText(match[1] || '', Math.max(30, Math.min(180, Number(config.ttsMaxChars) || 180))) };
 }
