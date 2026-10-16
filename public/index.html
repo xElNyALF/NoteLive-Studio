@@ -116,6 +116,103 @@
 </div>
 <div aria-live="polite" class="api-message" id="api-message" role="status"></div>
 </section>
+
+          <section class="panel music-design-panel">
+            <div class="section-heading">
+              <div class="step-number">03</div>
+              <div><h3>Notificación musical y visualizador</h3><p class="muted">Diseña la tarjeta que aparece al cambiar de canción y el ritmo que verá OBS.</p></div>
+            </div>
+            <div class="music-design-grid">
+              <div class="music-editor-column">
+                <h4 class="music-subheading">Notificación de canción</h4>
+                <label class="check-label music-check"><input id="music-notification-enabled" type="checkbox" checked> Mostrar notificación al cambiar de canción</label>
+                <div class="field-grid-two">
+                  <div class="field-stack">
+                    <label for="music-notification-style">Diseño</label>
+                    <select id="music-notification-style">
+                      <option value="vinyl">Vinilo animado</option>
+                      <option value="glass">Cristal / Glass</option>
+                      <option value="minimal">Minimalista</option>
+                    </select>
+                  </div>
+                  <div class="field-stack">
+                    <label for="music-notification-position">Posición en OBS</label>
+                    <select id="music-notification-position">
+                      <option value="top-left">Arriba a la izquierda</option>
+                      <option value="top-right">Arriba a la derecha</option>
+                      <option value="bottom-left">Abajo a la izquierda</option>
+                      <option value="bottom-right">Abajo a la derecha</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="appearance-field range-field">
+                  <div class="appearance-label-row"><label for="music-notification-duration">Tiempo visible</label><strong id="music-notification-duration-value">8 s</strong></div>
+                  <input id="music-notification-duration" type="range" min="3" max="20" step="1" value="8">
+                  <div class="range-ends"><span>3 segundos</span><span>20 segundos</span></div>
+                </div>
+                <div class="field-grid-two">
+                  <div class="field-stack">
+                    <label for="music-accent-color">Color de acento</label>
+                    <div class="color-picker-row"><input id="music-accent-color" type="color" value="#1ed760"><span class="muted">Líneas y detalles</span></div>
+                  </div>
+                  <div class="field-stack">
+                    <label for="music-card-opacity">Opacidad del panel <strong id="music-card-opacity-value">92%</strong></label>
+                    <input id="music-card-opacity" type="range" min="40" max="100" step="5" value="92">
+                  </div>
+                </div>
+                <div class="music-toggle-grid">
+                  <label class="check-label"><input id="music-show-cover" type="checkbox" checked> Portada</label>
+                  <label class="check-label"><input id="music-show-artist" type="checkbox" checked> Artista</label>
+                  <label class="check-label"><input id="music-show-progress" type="checkbox" checked> Barra de progreso</label>
+                </div>
+              </div>
+              <div class="music-editor-column">
+                <h4 class="music-subheading">Visualizador al ritmo del audio</h4>
+                <label class="check-label music-check"><input id="music-visualizer-enabled" type="checkbox" checked> Mostrar visualizador en OBS</label>
+                <p class="field-hint">Para que reaccione al sonido real, activa la captura local del audio del sistema. Las barras no son una animación fingida.</p>
+                <div class="field-grid-two">
+                  <div class="field-stack">
+                    <label for="music-visualizer-style">Forma del ritmo</label>
+                    <select id="music-visualizer-style">
+                      <option value="bars">Barras de ecualizador</option>
+                      <option value="wave">Onda</option>
+                      <option value="mirror">Barras espejo</option>
+                      <option value="circle">Círculo</option>
+                    </select>
+                  </div>
+                  <div class="field-stack">
+                    <label for="music-visualizer-color">Color de la onda</label>
+                    <div class="color-picker-row"><input id="music-visualizer-color" type="color" value="#ff6b9a"><span class="muted">Visualizador</span></div>
+                  </div>
+                </div>
+                <div class="appearance-field range-field">
+                  <div class="appearance-label-row"><label for="music-visualizer-sensitivity">Sensibilidad</label><strong id="music-visualizer-sensitivity-value">1.2×</strong></div>
+                  <input id="music-visualizer-sensitivity" type="range" min="0.5" max="2" step="0.1" value="1.2">
+                  <div class="range-ends"><span>Suave</span><span>Más reactivo</span></div>
+                </div>
+                <div class="appearance-field range-field">
+                  <div class="appearance-label-row"><label for="music-visualizer-height">Altura de la onda</label><strong id="music-visualizer-height-value">34 px</strong></div>
+                  <input id="music-visualizer-height" type="range" min="20" max="80" step="2" value="34">
+                </div>
+                <div class="audio-capture-card">
+                  <div class="audio-capture-status"><span class="pulse-dot"></span><strong id="music-audio-capture-state">Captura de audio desactivada</strong></div>
+                  <p id="music-audio-capture-help" class="field-hint">Actívala cuando Spotify esté reproduciendo. Solo se analizan niveles de audio en este PC; no se graba el sonido.</p>
+                  <button class="button button-secondary" id="music-audio-capture-toggle" type="button">Activar captura de audio</button>
+                </div>
+              </div>
+            </div>
+            <div class="music-design-footer">
+              <div class="music-footer-actions">
+                <button class="button button-primary" id="music-save-design" type="button">Guardar diseño</button>
+                <button class="button button-secondary" id="music-preview-overlay" type="button">Abrir vista previa</button>
+              </div>
+              <div class="music-footer-actions">
+                <button class="button button-secondary" id="music-floating-overlay" type="button">Mostrar mini overlay flotante</button>
+              </div>
+            </div>
+            <p class="field-hint music-design-note">El visualizador funciona también en la fuente de Navegador de OBS. La mini ventana flotante es opcional y se puede cerrar desde su botón ×.</p>
+            <div aria-live="polite" class="api-message" id="music-design-message" role="status"></div>
+          </section>
         </section>
 
         <section class="page-view" id="page-tiktok" data-view="tiktok">
