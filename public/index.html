@@ -462,16 +462,28 @@
 
           <section class="panel twitch-setup-panel">
             <div class="section-heading"><div class="step-number">01</div><div><h3>Conectar tu cuenta de Twitch</h3><p class="muted">La autenticación se hace con Twitch; tus credenciales de desarrollador se guardan localmente en este PC.</p></div></div>
-            <div class="twitch-setup-note"><strong>Antes de conectar:</strong> crea una aplicación en <a href="https://dev.twitch.tv/console/apps" target="_blank" rel="noreferrer">Twitch Developer Console</a>, añade la URL de redirección exacta que aparece abajo y conserva el tipo de cliente confidencial para usar Client Secret.</div>
-            <div class="twitch-credentials-grid">
-              <div class="field-stack"><label for="twitch-client-id">Twitch Client ID</label><input id="twitch-client-id" autocomplete="off" spellcheck="false" placeholder="Pega el Client ID de tu aplicación"></div>
-              <div class="field-stack"><label for="twitch-client-secret">Twitch Client Secret</label><input id="twitch-client-secret" type="password" autocomplete="new-password" placeholder="Guardado localmente; vacío conserva el actual"><span class="field-hint">No se muestra de nuevo después de guardarlo. No lo compartas ni lo publiques.</span></div>
+            <div class="twitch-setup-note" id="twitch-public-client-note" hidden><strong>Conexión sencilla:</strong> no necesitas crear una aplicación ni pegar credenciales de desarrollador. Pulsa <strong>Conectar cuenta Twitch</strong>, abre la página de Twitch y autoriza el acceso con el código que te mostraremos aquí.</div>
+            <div id="twitch-legacy-config">
+              <div class="twitch-setup-note" id="twitch-legacy-client-note"><strong>Modo de configuración avanzada:</strong> usa una aplicación de Twitch de tipo confidencial, añade la URL de redirección que aparece abajo y guarda el Client ID y el Client Secret solo en este PC.</div>
+              <div class="twitch-credentials-grid">
+                <div class="field-stack"><label for="twitch-client-id">Twitch Client ID</label><input id="twitch-client-id" autocomplete="off" spellcheck="false" placeholder="Pega el Client ID de tu aplicación"></div>
+                <div class="field-stack"><label for="twitch-client-secret">Twitch Client Secret</label><input id="twitch-client-secret" type="password" autocomplete="new-password" placeholder="Guardado localmente; vacío conserva el actual"><span class="field-hint">No se muestra de nuevo después de guardarlo. No lo compartas ni lo publiques.</span></div>
+              </div>
+              <div class="twitch-redirect-box"><div><span class="tiny-label">OAUTH REDIRECT URL · COPIA EXACTAMENTE</span><code id="twitch-redirect-uri">http://localhost:8787/twitch/callback</code></div><button class="button button-secondary" id="twitch-copy-redirect" type="button">Copiar URL</button></div>
             </div>
-            <div class="twitch-redirect-box"><div><span class="tiny-label">OAUTH REDIRECT URL · COPIA EXACTAMENTE</span><code id="twitch-redirect-uri">http://localhost:8787/twitch/callback</code></div><button class="button button-secondary" id="twitch-copy-redirect" type="button">Copiar URL</button></div>
             <div class="button-row twitch-connect-actions">
               <button class="button button-secondary" id="twitch-save-connection" type="button">Guardar credenciales</button>
               <button class="button button-primary" id="twitch-connect" type="button">Conectar cuenta Twitch</button>
               <button class="button button-quiet" id="twitch-disconnect" type="button" hidden>Desconectar</button>
+            </div>
+            <div class="twitch-device-flow-panel" id="twitch-device-flow-panel" hidden>
+              <div class="device-flow-copy"><strong>Autoriza NoteLive Studio</strong><p class="muted">Abre Twitch y confirma el código de un solo uso. No cierres NoteLive Studio mientras autorizas.</p></div>
+              <div class="twitch-device-code-row"><code id="twitch-device-code">--------</code><button class="button button-secondary" id="twitch-copy-device-code" type="button">Copiar código</button></div>
+              <div class="button-row twitch-device-actions">
+                <a class="button button-primary" id="twitch-device-verification-link" href="https://www.twitch.tv/activate" target="_blank" rel="noreferrer">Abrir Twitch y autorizar ↗</a>
+                <button class="button button-quiet" id="twitch-device-cancel" type="button">Cancelar</button>
+              </div>
+              <p class="field-hint" id="twitch-device-expiry">El código caduca al cabo de un tiempo. Si vence, genera uno nuevo.</p>
             </div>
             <div class="connection-status compact-status twitch-status-card">
               <div class="status-icon">♧</div>
