@@ -514,6 +514,71 @@ tiktokEvents.addEventListener('message', event => {
   } catch {}
 });
 
+// In-app updater status: no surprise dialogs, just one clear progress panel.
+const updatePanel = $('#update-status-panel');
+const updateCheckButton = $('#update-check-button');
+const updateProgressWrap = $('#update-progress-wrap');
+const updateProgressBar = $('#update-progress-bar');
+const updateProgressPercent = $('#update-progress-percent');
+const updateRestartButton = $('#update-restart-button');
+const updateDismissButton = $('#update-status-dismiss');
+
+function renderUpdateStatus(status = {}) {
+  if (!updatePanel) return;
+  const state = status.state || 'idle';
+  if (state === 'idle') {
+    updatePanel.hidden = true;
+    return;
+  }
+  updatePanel.hidden = false;
+  updatePanel.dataset.state = state;
+  $('#update-status-title').textContent = status.message || 'Estado de actualización';
+  $('#update-status-detail').textContent = status.detail || '';
+  $('#update-status-version').textContent = status.version ? 'v' + status.version : '';
+  $('#update-status-icon').textContent = state === 'ready' ? '✓' : state === 'error' ? '!' : state === 'up-to-date' ? '✓' : '↻';
+
+  const percent = Math.max(0, Math.min(100, Math.round(Number(status.percent) || 0)));
+  updateProgressWrap.hidden = state !== 'downloading';
+  updateProgressBar.style.width = percent + '%';
+  updateProgressPercent.textContent = percent + '%';
+  updateCheckButton.disabled = ['checking', 'downloading', 'ready'].includes(state);
+  updateCheckButton.title = state === 'checking' ? 'Comprobando actualizaciones…' : state === 'downloading' ? 'Descargando actualización…' : 'Buscar actualizaciones';
+  updateRestartButton.hidden = state !== 'ready';
+  updateDismissButton.hidden = ['checking', 'downloading'].includes(state);
+  updatePanel.classList.toggle('is-busy', ['checking', 'downloading'].includes(state));
+}
+
+if (!window.noteLiveDesktop?.isDesktopApp && updateCheckButton) {
+  updateCheckButton.hidden = true;
+}
+if (window.noteLiveDesktop?.onUpdateStatus) {
+  window.noteLiveDesktop.onUpdateStatus(renderUpdateStatus);
+  window.noteLiveDesktop.getUpdateStatus().then(renderUpdateStatus).catch(() => {});
+}
+updateCheckButton?.addEventListener('click', async () => {
+  if (!window.noteLiveDesktop?.checkForUpdates) return;
+  renderUpdateStatus({ state: 'checking', message: 'Buscando actualizaciones…', detail: 'Comprobando la versión más reciente.' });
+  try { await window.noteLiveDesktop.checkForUpdates(); }
+  catch (error) { renderUpdateStatus({ state: 'error', message: 'No se pudo comprobar la actualización.', detail: error.message || String(error) }); }
+});
+updateRestartButton?.addEventListener('click', async () => {
+  if (!window.noteLiveDesktop?.restartAndInstallUpdate) return;
+  updateRestartButton.disabled = true;
+  updateRestartButton.textContent = 'Reiniciando…';
+  try {
+    const result = await window.noteLiveDesktop.restartAndInstallUpdate();
+    if (!result?.started) {
+      updateRestartButton.disabled = false;
+      updateRestartButton.textContent = 'Reiniciar para instalar';
+    }
+  } catch (error) {
+    updateRestartButton.disabled = false;
+    updateRestartButton.textContent = 'Reiniciar para instalar';
+    renderUpdateStatus({ state: 'error', message: 'No se pudo iniciar la instalación.', detail: error.message || String(error) });
+  }
+});
+updateDismissButton?.addEventListener('click', () => { updatePanel.hidden = true; });
+
 // Main navigation: each service has its own workspace instead of a long page.
 const viewMeta = {
   home: { eyebrow: 'STUDIO OVERVIEW', title: 'Tu centro creativo', subtitle: 'Un solo lugar para conectar, personalizar y controlar tus directos.' },
@@ -521,6 +586,7 @@ const viewMeta = {
   spotify: { eyebrow: 'MUSIC INTEGRATION', title: 'Spotify', subtitle: 'Conecta tu música y personaliza la notificación que verán tus espectadores.' },
   chat: { eyebrow: 'MULTI-PLATFORM / LIVE CHAT', title: 'Chat general', subtitle: 'Twitch y TikTok LIVE juntos, con el origen y los emotes de cada mensaje.' },
   tiktok: { eyebrow: 'COMMUNITY / LIVE CHAT', title: 'TikTok LIVE', subtitle: 'Mensajes del chat, estado del directo y conexión con el lector de voz.' },
+  kick: { eyebrow: 'PLATFORM INTEGRATION / COMING SOON', title: 'Kick', subtitle: 'Integración en preparación. Todavía no conecta con Kick.' },
   voice: { eyebrow: 'TEXT TO SPEECH', title: 'Voz de IA', subtitle: 'Controla ElevenLabs, la plantilla de mensajes, la velocidad y los filtros.' },
   obs: { eyebrow: 'OUTPUT / BROADCAST', title: 'OBS Studio', subtitle: 'Configura las Browser Sources para música y audio.' },
   appearance: { eyebrow: 'YOUR SPACE / YOUR RULES', title: 'Personaliza tu universo', subtitle: 'Tu personaje favorito como fondo, con desenfoque, opacidad y colores a tu gusto.' }
@@ -1580,6 +1646,43 @@ function renderUnifiedPlatformStatus(platforms = {}) {
   }
 }
 
+function makeUnifiedPlatformBadge(platform) {
+  const isTwitch = platform === 'twitch';
+  const badge = document.createElement('span');
+  badge.className = 'unified-source-badge ' + (isTwitch ? 'source-twitch' : 'source-tiktok');
+  const platformName = isTwitch ? 'Twitch' : 'TikTok LIVE';
+  badge.title = 'Mensaje enviado desde ' + platformName;
+  badge.setAttribute('aria-label', platformName);
+
+  const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  icon.setAttribute('viewBox', '0 0 24 24');
+  icon.setAttribute('aria-hidden', 'true');
+  icon.classList.add('source-platform-icon', isTwitch ? 'source-platform-icon-twitch' : 'source-platform-icon-tiktok');
+  const shape = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  if (isTwitch) {
+    shape.setAttribute('d', 'M4 3H21V15L16 20H12L9 23V20H4V3Z');
+    shape.setAttribute('fill', 'none');
+    shape.setAttribute('stroke', 'currentColor');
+    shape.setAttribute('stroke-width', '2.2');
+    shape.setAttribute('stroke-linejoin', 'round');
+    icon.appendChild(shape);
+    const lines = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    lines.setAttribute('d', 'M10 7V13M15 7V13');
+    lines.setAttribute('fill', 'none');
+    lines.setAttribute('stroke', 'currentColor');
+    lines.setAttribute('stroke-width', '2.2');
+    icon.appendChild(lines);
+  } else {
+    shape.setAttribute('d', 'M14 4v10.2a4.2 4.2 0 1 1-3-4V7.4c1.1 1.9 2.6 3 5 3.3V7.6C14.4 7 14 5.9 14 4Z');
+    shape.setAttribute('fill', 'currentColor');
+    icon.appendChild(shape);
+  }
+  const label = document.createElement('span');
+  label.textContent = isTwitch ? 'TWITCH' : 'TIKTOK LIVE';
+  badge.append(icon, label);
+  return badge;
+}
+
 function renderUnifiedChatFeed() {
   const feed = $('#unified-chat-feed');
   if (!feed) return;
@@ -1611,10 +1714,7 @@ function renderUnifiedChatFeed() {
     const header = document.createElement('div');
     header.className = 'unified-message-header';
     if (unifiedChatConfig.showPlatformBadge) {
-      const platformBadge = document.createElement('span');
-      platformBadge.className = 'unified-source-badge ' + (isTwitch ? 'source-twitch' : 'source-tiktok');
-      platformBadge.textContent = isTwitch ? 'TWITCH' : 'TIKTOK LIVE';
-      header.appendChild(platformBadge);
+      header.appendChild(makeUnifiedPlatformBadge(item.platform));
     }
     const username = document.createElement('strong');
     username.className = 'chat-user';
