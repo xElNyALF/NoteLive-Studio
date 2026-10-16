@@ -22,6 +22,7 @@ La configuración y las credenciales se guardan en la carpeta de datos de NoteLi
 
 ## Funciones
 
+- **v0.3.7:** personalización del chat general con ocho tipografías, tamaño y colores de texto, opacidad, número de mensajes y controles para ocultar avatares, insignias, etiquetas y hora. Muestra avatares circulares de Twitch/TikTok, iconos de streamer, moderador, VIP, suscriptor y etiqueta `TÚ`. Añade el comando de voz `!voice` para leer una frase elegida con ElevenLabs y una opción para permitir moderadores.
 - **v0.3.6:** chat general que reúne Twitch y TikTok LIVE, etiqueta cada mensaje con su plataforma, muestra los emotes de Twitch como imágenes y admite stickers de TikTok cuando el conector los entrega. Incluye una fuente de Navegador combinada para OBS en `http://127.0.0.1:8787/unified-chat-overlay` y filtros para ver todas las plataformas o solo una.
 - **v0.3.5:** integración de Twitch con OAuth, EventSub WebSocket para `channel.follow` y `channel.chat.message`, alerta de follow personalizable, overlay de chat separado para OBS y lectura opcional del chat mediante la fuente de ElevenLabs `/tts`. Requiere registrar una app de Twitch y añadir la URL de redirección `http://localhost:8787/twitch/callback`.
 
@@ -51,6 +52,12 @@ La configuración y las credenciales se guardan en la carpeta de datos de NoteLi
    - Voz ElevenLabs: \`http://127.0.0.1:8787/tts\`
 
 La fuente de voz reutiliza los ajustes de ElevenLabs y la cola de voz existente. Mantén NoteLive Studio abierto durante el directo. Las credenciales y el token de Twitch se guardan localmente; el token está en \`twitch-tokens.json\` en modo desarrollo y en la carpeta de datos del usuario cuando se instala la aplicación.
+
+## Comando de voz en Twitch
+
+En **Chat general → Comando de voz de Twitch**, activa el comando `!voice`. En el chat de tu canal escribe, por ejemplo, `!voice Hola a todos`. NoteLive Studio lee solo la frase después del comando, usando la voz de ElevenLabs configurada. Por defecto, solo la cuenta del streamer puede activar esta función; puedes habilitar el uso por moderadores desde los ajustes. Mantén conectada la sesión de Twitch, ElevenLabs configurado y una fuente de navegador de audio apuntando a `http://127.0.0.1:8787/tts` activa en OBS.
+
+Usa `!voice` como comando principal. También se detecta `/voice` si el cliente de Twitch entrega ese texto como mensaje normal, pero los comandos que empiezan con `/` pueden ser tratados de forma especial por Twitch y no siempre llegan a NoteLive. No se necesita permiso para enviar mensajes al chat.
 
 ## Primer uso de Spotify
 
