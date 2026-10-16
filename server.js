@@ -97,6 +97,53 @@ const DEFAULT_TWITCH_CHAT_CONFIG = Object.freeze({
   compact: false
 });
 
+const DEFAULT_UNIFIED_CHAT_CONFIG = Object.freeze({
+  fontFamily: 'modern',
+  fontSize: 15,
+  usernameColor: '#f3f5fa',
+  messageColor: '#e7ebf2',
+  twitchAccent: '#b58aff',
+  tiktokAccent: '#50e5c1',
+  backgroundOpacity: 88,
+  maxMessages: 8,
+  showAvatars: true,
+  showBadges: true,
+  showPlatformBadge: true,
+  showTimestamp: true,
+  compact: false
+});
+
+const UNIFIED_CHAT_FONT_FAMILIES = new Set(['modern', 'windows', 'rounded', 'gaming', 'retro', 'serif', 'playful', 'elegant']);
+
+function normalizeUnifiedChatConfig(value) {
+  const input = value && typeof value === 'object' ? value : {};
+  const validHex = candidate => typeof candidate === 'string' && /^#[0-9a-fA-F]{6}$/.test(candidate);
+  const pick = (key, fallback) => validHex(input[key]) ? input[key] : fallback;
+  return {
+    fontFamily: UNIFIED_CHAT_FONT_FAMILIES.has(input.fontFamily) ? input.fontFamily : DEFAULT_UNIFIED_CHAT_CONFIG.fontFamily,
+    fontSize: Math.round(clampNumber(input.fontSize, 12, 22, DEFAULT_UNIFIED_CHAT_CONFIG.fontSize)),
+    usernameColor: pick('usernameColor', DEFAULT_UNIFIED_CHAT_CONFIG.usernameColor),
+    messageColor: pick('messageColor', DEFAULT_UNIFIED_CHAT_CONFIG.messageColor),
+    twitchAccent: pick('twitchAccent', DEFAULT_UNIFIED_CHAT_CONFIG.twitchAccent),
+    tiktokAccent: pick('tiktokAccent', DEFAULT_UNIFIED_CHAT_CONFIG.tiktokAccent),
+    backgroundOpacity: Math.round(clampNumber(input.backgroundOpacity, 25, 100, DEFAULT_UNIFIED_CHAT_CONFIG.backgroundOpacity)),
+    maxMessages: Math.round(clampNumber(input.maxMessages, 3, 12, DEFAULT_UNIFIED_CHAT_CONFIG.maxMessages)),
+    showAvatars: input.showAvatars !== false,
+    showBadges: input.showBadges !== false,
+    showPlatformBadge: input.showPlatformBadge !== false,
+    showTimestamp: input.showTimestamp !== false,
+    compact: input.compact === true
+  };
+}
+
+function normalizeTwitchVoiceCommand(value) {
+  const input = value && typeof value === 'object' ? value : {};
+  return {
+    enabled: input.enabled !== false,
+    moderatorsCanUse: input.moderatorsCanUse === true
+  };
+}
+
 function normalizeTwitchAlertConfig(value) {
   const input = value && typeof value === 'object' ? value : {};
   const validHex = candidate => typeof candidate === 'string' && /^#[0-9a-fA-F]{6}$/.test(candidate);
@@ -160,6 +207,9 @@ let recentChatMessages = [];
 let recentUnifiedChatMessages = [];
 const duplicateChatCache = new Map();
 const userSpeechHistory = new Map();
+const twitchVoiceCommandLastUsed = new Map();
+const twitchProfileImageCache = new Map();
+const twitchProfileLookupInFlight = new Map();
 
 let playbackState = {
   connected: Boolean(tokens && tokens.refresh_token),
@@ -183,6 +233,8 @@ function loadConfig() {
     twitchReadChat: data.twitchReadChat !== false,
     twitchAlert: normalizeTwitchAlertConfig(data.twitchAlert),
     twitchChatOverlay: normalizeTwitchChatConfig(data.twitchChatOverlay),
+    unifiedChat: normalizeUnifiedChatConfig(data.unifiedChat),
+    twitchVoiceCommand: normalizeTwitchVoiceCommand(data.twitchVoiceCommand),
     elevenLabsApiKey: typeof data.elevenLabsApiKey === 'string' ? data.elevenLabsApiKey.trim() : '',
     elevenLabsVoiceId: typeof data.elevenLabsVoiceId === 'string' ? data.elevenLabsVoiceId.trim() : '',
     elevenLabsModelId: typeof data.elevenLabsModelId === 'string' ? data.elevenLabsModelId : 'eleven_multilingual_v2',
@@ -274,7 +326,7 @@ function publicStatus() {
     twitch: { ...twitchStatus, clientId: config.twitchClientId || '', authorized: Boolean(twitchTokens && twitchTokens.refresh_token), hasClientId: Boolean(config.twitchClientId), hasClientSecret: Boolean(config.twitchClientSecret), redirectUri: TWITCH_REDIRECT_URI, readChat: config.twitchReadChat !== false, alertConfig: config.twitchAlert, chatConfig: config.twitchChatOverlay, alertUrl: `http://${HOST}:${PORT}/twitch-overlay`, chatOverlayUrl: `http://${HOST}:${PORT}/twitch-chat-overlay`, history: recentTwitchChatMessages.slice(0, 30), recentAlert: recentTwitchAlert },
     tiktok: { ...tiktokStatus, username: tiktokStatus.username || config.tiktokUsername || '' },
     chatHistory: recentChatMessages.slice(0, 30),
-    unifiedChat: { history: recentUnifiedChatMessages.slice(0, 80), platforms: getUnifiedChatPlatforms(), overlayUrl: `http://${HOST}:${PORT}/unified-chat-overlay` },
+    unifiedChat: { history: recentUnifiedChatMessages.slice(0, 80), platforms: getUnifiedChatPlatforms(), config: config.unifiedChat, voiceCommand: config.twitchVoiceCommand, overlayUrl: `http://${HOST}:${PORT}/unified-chat-overlay` },
     voice: {
       hasApiKey: Boolean(config.elevenLabsApiKey),
       voiceId: config.elevenLabsVoiceId || '',
