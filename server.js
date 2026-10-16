@@ -1324,6 +1324,22 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (req.method === 'POST' && pathname === '/api/chat/config') {
+    try {
+      const body = await readRequestJson(req);
+      config.unifiedChat = normalizeUnifiedChatConfig(body.config || body);
+      if (body.voiceCommand && typeof body.voiceCommand === 'object') {
+        config.twitchVoiceCommand = normalizeTwitchVoiceCommand(body.voiceCommand);
+      }
+      persistJson(CONFIG_FILE, config);
+      const result = { config: config.unifiedChat, voiceCommand: config.twitchVoiceCommand };
+      publishUnifiedChatEvent({ type: 'config', ...result });
+      return sendJson(res, 200, { ok: true, ...result });
+    } catch (error) {
+      return sendJson(res, 400, { error: error.message || 'No se pudo guardar la personalización del chat.' });
+    }
+  }
+
   if (req.method === 'GET' && pathname === '/api/chat/events') {
     res.writeHead(200, {
       'Content-Type': 'text/event-stream; charset=utf-8',
@@ -1336,6 +1352,8 @@ const server = http.createServer(async (req, res) => {
       type: 'init',
       history,
       platforms: getUnifiedChatPlatforms(),
+      config: config.unifiedChat,
+      voiceCommand: config.twitchVoiceCommand,
       overlayUrl: `http://${HOST}:${PORT}/unified-chat-overlay`
     }) + '\n\n');
     unifiedChatSseClients.add(res);
