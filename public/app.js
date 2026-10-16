@@ -541,7 +541,7 @@ function renderUpdateStatus(status = {}) {
   updateProgressWrap.hidden = state !== 'downloading';
   updateProgressBar.style.width = percent + '%';
   updateProgressPercent.textContent = percent + '%';
-  updateCheckButton.disabled = ['checking', 'downloading', 'ready'].includes(state);
+  updateCheckButton.disabled = ['checking', 'downloading'].includes(state);
   updateCheckButton.title = state === 'checking' ? 'Comprobando actualizaciones…' : state === 'downloading' ? 'Descargando actualización…' : 'Buscar actualizaciones';
   updateRestartButton.hidden = state !== 'ready';
   updateDismissButton.hidden = ['checking', 'downloading'].includes(state);
