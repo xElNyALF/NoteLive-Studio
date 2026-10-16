@@ -84,7 +84,13 @@ const DEFAULT_TWITCH_ALERT_CONFIG = Object.freeze({
   accentColor: '#a970ff',
   title: '¡Nuevo follow!',
   message: '{username} ahora te sigue',
-  soundEnabled: true
+  soundEnabled: true,
+  imageUrl: '',
+  imageMimeType: '',
+  imageFit: 'contain',
+  soundUrl: '',
+  soundMimeType: '',
+  soundDurationSeconds: 0
 });
 
 const DEFAULT_TWITCH_CHAT_CONFIG = Object.freeze({
@@ -149,14 +155,20 @@ function normalizeTwitchAlertConfig(value) {
   const validHex = candidate => typeof candidate === 'string' && /^#[0-9a-fA-F]{6}$/.test(candidate);
   return {
     enabled: input.enabled !== false,
-    style: ['card', 'neon', 'minimal', 'pixel'].includes(input.style) ? input.style : DEFAULT_TWITCH_ALERT_CONFIG.style,
+    style: ['card', 'neon', 'minimal', 'pixel', 'hologram', 'sakura', 'glitch', 'arcade', 'aurora', 'comic'].includes(input.style) ? input.style : DEFAULT_TWITCH_ALERT_CONFIG.style,
     durationSeconds: Math.round(clampNumber(input.durationSeconds, 3, 20, DEFAULT_TWITCH_ALERT_CONFIG.durationSeconds)),
     accentColor: validHex(input.accentColor) ? input.accentColor : DEFAULT_TWITCH_ALERT_CONFIG.accentColor,
     title: cleanConfigText(input.title, 64, DEFAULT_TWITCH_ALERT_CONFIG.title),
     message: cleanConfigText(input.message, 120, DEFAULT_TWITCH_ALERT_CONFIG.message).includes('{username}')
       ? cleanConfigText(input.message, 120, DEFAULT_TWITCH_ALERT_CONFIG.message)
       : DEFAULT_TWITCH_ALERT_CONFIG.message,
-    soundEnabled: input.soundEnabled !== false
+    soundEnabled: input.soundEnabled !== false,
+    imageUrl: input.imageUrl === '/twitch-alert-media/image' ? input.imageUrl : '',
+    imageMimeType: ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/avif'].includes(input.imageMimeType) ? input.imageMimeType : '',
+    imageFit: input.imageFit === 'cover' ? 'cover' : 'contain',
+    soundUrl: input.soundUrl === '/twitch-alert-media/audio' ? input.soundUrl : '',
+    soundMimeType: ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/ogg', 'audio/mp4', 'audio/aac', 'audio/webm', 'audio/flac'].includes(input.soundMimeType) ? input.soundMimeType : '',
+    soundDurationSeconds: Math.round(clampNumber(input.soundDurationSeconds, 0, 10, 0))
   };
 }
 
@@ -290,21 +302,71 @@ function sendText(res, status, text) {
   res.end(text);
 }
 
-function readRequestJson(req) {
+const TWITCH_ALERT_MEDIA_DIR = path.join(DATA_DIR, 'twitch-alert-media');
+const TWITCH_ALERT_MEDIA_MAX_BYTES = Object.freeze({ image: 10 * 1024 * 1024, audio: 5 * 1024 * 1024 });
+const TWITCH_ALERT_MEDIA_TYPES = Object.freeze({
+  image: Object.freeze({
+    'image/png': 'alert-image.bin', 'image/jpeg': 'alert-image.bin', 'image/webp': 'alert-image.bin',
+    'image/gif': 'alert-image.bin', 'image/avif': 'alert-image.bin'
+  }),
+  audio: Object.freeze({
+    'audio/mpeg': 'alert-sound.bin', 'audio/mp3': 'alert-sound.bin', 'audio/wav': 'alert-sound.bin',
+    'audio/x-wav': 'alert-sound.bin', 'audio/ogg': 'alert-sound.bin', 'audio/mp4': 'alert-sound.bin',
+    'audio/aac': 'alert-sound.bin', 'audio/webm': 'alert-sound.bin', 'audio/flac': 'alert-sound.bin'
+  })
+});
+
+function serveTwitchAlertMedia(res, kind) {
+  const isImage = kind === 'image';
+  const mediaConfig = config.twitchAlert || DEFAULT_TWITCH_ALERT_CONFIG;
+  const route = isImage ? mediaConfig.imageUrl : mediaConfig.soundUrl;
+  const mime = isImage ? mediaConfig.imageMimeType : mediaConfig.soundMimeType;
+  const filename = isImage ? 'alert-image.bin' : 'alert-sound.bin';
+  if (route !== (isImage ? '/twitch-alert-media/image' : '/twitch-alert-media/audio') || !mime) {
+    return sendText(res, 404, 'No hay un archivo configurado.');
+  }
+  const mediaPath = path.join(TWITCH_ALERT_MEDIA_DIR, filename);
+  let stat;
+  try { stat = fs.statSync(mediaPath); } catch {}
+  if (!stat || !stat.isFile()) return sendText(res, 404, 'No se encontró el archivo de la alerta.');
+  res.writeHead(200, {
+    'Content-Type': mime, 'Content-Length': stat.size, 'Cache-Control': 'no-store, max-age=0',
+    'X-Content-Type-Options': 'nosniff',
+    'Content-Security-Policy': "default-src 'none'; sandbox"
+  });
+  fs.createReadStream(mediaPath).pipe(res);
+}
+
+function broadcastTwitchAlertConfig() {
+  const current = publicStatus().twitch;
+  publishTwitchEvent({
+    type: 'config', status: current, alertConfig: config.twitchAlert,
+    chatConfig: config.twitchChatOverlay, readChat: config.twitchReadChat, voice: publicStatus().voice
+  });
+}
+
+function readRequestJson(req, maxBytes = 16_384) {
   return new Promise((resolve, reject) => {
     let body = '';
+    let receivedBytes = 0;
+    let rejected = false;
     req.on('data', chunk => {
-      body += chunk;
-      if (body.length > 16_384) {
-        reject(new Error('Solicitud demasiado grande.'));
+      if (rejected) return;
+      receivedBytes += chunk.length;
+      if (receivedBytes > maxBytes) {
+        rejected = true;
+        reject(new Error('El archivo supera el límite permitido.'));
         req.destroy();
+        return;
       }
+      body += chunk.toString('utf8');
     });
     req.on('end', () => {
+      if (rejected) return;
       try { resolve(JSON.parse(body || '{}')); }
       catch { reject(new Error('JSON no válido.')); }
     });
-    req.on('error', reject);
+    req.on('error', error => { if (!rejected) reject(error); });
   });
 }
 
@@ -917,6 +979,12 @@ function makeTwitchFollowAlert(username, test) {
     accentColor: config.twitchAlert.accentColor,
     durationSeconds: config.twitchAlert.durationSeconds,
     soundEnabled: config.twitchAlert.soundEnabled,
+    imageUrl: config.twitchAlert.imageUrl,
+    imageMimeType: config.twitchAlert.imageMimeType,
+    imageFit: config.twitchAlert.imageFit,
+    soundUrl: config.twitchAlert.soundUrl,
+    soundMimeType: config.twitchAlert.soundMimeType,
+    soundDurationSeconds: config.twitchAlert.soundDurationSeconds,
     timestamp: Date.now(),
     test: Boolean(test)
   };
@@ -1156,6 +1224,9 @@ const server = http.createServer(async (req, res) => {
   }
 
 
+  if (req.method === 'GET' && pathname === '/twitch-alert-media/image') return serveTwitchAlertMedia(res, 'image');
+  if (req.method === 'GET' && pathname === '/twitch-alert-media/audio') return serveTwitchAlertMedia(res, 'audio');
+
   if (req.method === 'GET' && pathname === '/twitch-overlay') {
     return serveAsset(res, 'twitch-overlay.html', 'text/html; charset=utf-8');
   }
@@ -1274,10 +1345,61 @@ const server = http.createServer(async (req, res) => {
       if (body.chatConfig && typeof body.chatConfig === 'object') config.twitchChatOverlay = normalizeTwitchChatConfig(body.chatConfig);
       persistJson(CONFIG_FILE, config);
       const current = publicStatus().twitch;
-      publishTwitchEvent({ type: 'config', status: current, alertConfig: config.twitchAlert, chatConfig: config.twitchChatOverlay, readChat: config.twitchReadChat, voice: publicStatus().voice });
+      broadcastTwitchAlertConfig();
       return sendJson(res, 200, { ok: true, twitch: current });
     } catch (error) {
       return sendJson(res, 400, { error: error.message || 'No se pudo guardar la configuración de Twitch.' });
+    }
+  }
+
+  if (req.method === 'POST' && pathname === '/api/twitch/alert-media') {
+    try {
+      // Ten MiB images become about 13.4 MiB when encoded as base64 JSON.
+      const body = await readRequestJson(req, 15 * 1024 * 1024);
+      const mediaType = body.mediaType;
+      if (!['image', 'audio'].includes(mediaType)) return sendJson(res, 400, { error: 'Selecciona imagen/GIF o sonido.' });
+      const isImage = mediaType === 'image';
+      const mime = typeof body.mimeType === 'string' ? body.mimeType.toLowerCase() : '';
+      const filename = TWITCH_ALERT_MEDIA_TYPES[mediaType][mime];
+      if (body.remove === true) {
+        const mediaPath = path.join(TWITCH_ALERT_MEDIA_DIR, isImage ? 'alert-image.bin' : 'alert-sound.bin');
+        try { fs.unlinkSync(mediaPath); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+        if (isImage) { config.twitchAlert.imageUrl = ''; config.twitchAlert.imageMimeType = ''; }
+        else { config.twitchAlert.soundUrl = ''; config.twitchAlert.soundMimeType = ''; config.twitchAlert.soundDurationSeconds = 0; }
+        config.twitchAlert = normalizeTwitchAlertConfig(config.twitchAlert);
+        persistJson(CONFIG_FILE, config);
+        broadcastTwitchAlertConfig();
+        return sendJson(res, 200, { ok: true, alertConfig: config.twitchAlert });
+      }
+      if (!filename) return sendJson(res, 400, { error: isImage
+        ? 'Formato no admitido. Usa PNG, JPG, WebP, GIF o AVIF.'
+        : 'Formato no admitido. Usa MP3, WAV, OGG, M4A/MP4, AAC, WebM o FLAC.' });
+      const dataUrl = typeof body.dataUrl === 'string' ? body.dataUrl : '';
+      const match = dataUrl.match(/^data:([^;,]+);base64,([A-Za-z0-9+/=]+)$/);
+      if (!match || match[1].toLowerCase() !== mime) return sendJson(res, 400, { error: 'El archivo no pudo leerse correctamente. Inténtalo de nuevo.' });
+      const bytes = Buffer.from(match[2], 'base64');
+      if (!bytes.length) return sendJson(res, 400, { error: 'El archivo está vacío.' });
+      if (bytes.length > TWITCH_ALERT_MEDIA_MAX_BYTES[mediaType]) return sendJson(res, 413, { error: isImage
+        ? 'La imagen o el GIF supera el límite de 10 MB.'
+        : 'El sonido supera el límite de 5 MB.' });
+      if (!isImage) {
+        const duration = Number(body.durationSeconds);
+        if (!Number.isFinite(duration) || duration <= 0 || duration > 10.05) return sendJson(res, 400, { error: 'El sonido debe durar 10 segundos o menos.' });
+      }
+      fs.mkdirSync(TWITCH_ALERT_MEDIA_DIR, { recursive: true });
+      fs.writeFileSync(path.join(TWITCH_ALERT_MEDIA_DIR, filename), bytes, { mode: 0o600 });
+      if (isImage) { config.twitchAlert.imageUrl = '/twitch-alert-media/image'; config.twitchAlert.imageMimeType = mime; }
+      else {
+        config.twitchAlert.soundUrl = '/twitch-alert-media/audio';
+        config.twitchAlert.soundMimeType = mime;
+        config.twitchAlert.soundDurationSeconds = Math.round(Number(body.durationSeconds) * 10) / 10;
+      }
+      config.twitchAlert = normalizeTwitchAlertConfig(config.twitchAlert);
+      persistJson(CONFIG_FILE, config);
+      broadcastTwitchAlertConfig();
+      return sendJson(res, 200, { ok: true, alertConfig: config.twitchAlert });
+    } catch (error) {
+      return sendJson(res, 400, { error: error.message || 'No se pudo guardar el archivo de la alerta.' });
     }
   }
 
