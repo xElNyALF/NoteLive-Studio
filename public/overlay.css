@@ -454,9 +454,9 @@ h1 {
   box-shadow: 0 16px 42px rgba(0,0,0,.35), 0 0 24px rgba(189,160,255,.12);
 }
 .song-banner.is-persistent:not(.is-leaving) { visibility: visible; }
-.song-banner.is-track-changing .cover-wrap { animation: track-cover-change .68s cubic-bezier(.2,.82,.24,1) both; }
-.song-banner.is-track-changing .song-info { animation: track-info-change .62s ease both; }
-.song-banner.is-track-changing .visualizer-inline { animation: track-spectrum-flash .6s ease both; }
+.song-banner.is-visible.is-track-changing .cover-wrap { animation: track-cover-change .68s cubic-bezier(.2,.82,.24,1) both; }
+.song-banner.is-visible.is-track-changing .song-info { animation: track-info-change .62s ease both; }
+.song-banner.is-visible.is-track-changing .visualizer-inline { animation: track-spectrum-flash .6s ease both; }
 .song-banner[data-preset="always-on"].is-track-changing { animation: always-on-breath .68s ease both; }
 @keyframes track-cover-change {
   0% { opacity: .45; transform: scale(.92) rotate(-3deg); filter: brightness(.8); }
