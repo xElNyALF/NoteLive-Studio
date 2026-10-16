@@ -45,6 +45,7 @@ function playAlertSound() {
 function showAlert(alert) {
   if (!alert || (!alertConfig.enabled && !alert.test)) return;
   clearTimeout(hideTimer);
+  banner.hidden = false;
   titleNode.textContent = alert.title || alertConfig.title || '¡Nuevo follow!';
   messageNode.textContent = alert.message || (alert.username ? alert.username + ' ahora te sigue' : 'Alguien nuevo se unió a la comunidad');
   banner.classList.remove('is-visible', 'is-hiding');
@@ -54,7 +55,7 @@ function showAlert(alert) {
   hideTimer = setTimeout(() => {
     banner.classList.remove('is-visible');
     banner.classList.add('is-hiding');
-    setTimeout(() => banner.classList.remove('is-hiding'), 420);
+    setTimeout(() => { banner.classList.remove('is-hiding'); banner.hidden = true; }, 420);
   }, Math.max(3, Math.min(20, Number(alert.durationSeconds || alertConfig.durationSeconds) || 7)) * 1000);
 }
 
