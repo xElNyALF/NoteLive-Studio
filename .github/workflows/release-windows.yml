@@ -28,7 +28,7 @@ jobs:
         id: release
         shell: pwsh
         env:
-          GH_TOKEN: \${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $pkg = Get-Content package.json -Raw | ConvertFrom-Json
           if ("$env:GITHUB_REF" -like "refs/tags/v*") {
@@ -54,4 +54,4 @@ jobs:
         if: steps.release.outputs.should_publish == 'true'
         run: npx electron-builder --win nsis --publish always
         env:
-          GH_TOKEN: \${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
