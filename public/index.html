@@ -20,6 +20,9 @@
         </div>
         <div class="topbar-right">
           <div class="server-pill"><span class="pulse-dot"></span><span>LOCAL APP</span></div>
+          <button class="topbar-update-button" id="update-check-button" type="button" title="Buscar actualizaciones" aria-label="Buscar actualizaciones">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.8-4L3 10"/><path d="M3 4v6h6"/><path d="M4 13a8 8 0 0 0 14.8 4L21 14"/><path d="M21 20v-6h-6"/></svg><span>Actualizar</span>
+          </button>
           <div class="topbar-divider"></div>
           <button class="top-icon-button" type="button" data-go="appearance" title="Personalizar apariencia" aria-label="Personalizar apariencia">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v2M12 19v2M3 12h2m14 0h2M5.64 5.64l1.42 1.42m9.88 9.88 1.42 1.42m0-12.72-1.42 1.42m-9.88 9.88-1.42 1.42"/><circle cx="12" cy="12" r="5"/></svg>
@@ -36,10 +39,26 @@
           <div class="live-pill"><span class="pulse-dot"></span> PANEL LISTO</div>
         </div>
 
+        <section class="update-status-panel" id="update-status-panel" hidden role="status" aria-live="polite">
+          <div class="update-status-icon" id="update-status-icon" aria-hidden="true">↻</div>
+          <div class="update-status-content">
+            <div class="update-status-title-row"><strong id="update-status-title">Buscando actualizaciones…</strong><span id="update-status-version"></span></div>
+            <p id="update-status-detail">Comprobando la versión más reciente.</p>
+            <div class="update-progress-wrap" id="update-progress-wrap" hidden>
+              <div class="update-progress-track"><span id="update-progress-bar"></span></div>
+              <small><span id="update-progress-percent">0%</span> · Descargando actualización</small>
+            </div>
+          </div>
+          <div class="update-status-actions">
+            <button class="button button-primary" id="update-restart-button" type="button" hidden>Reiniciar para instalar</button>
+            <button class="button button-quiet update-dismiss-button" id="update-status-dismiss" type="button" aria-label="Ocultar aviso" title="Ocultar aviso">×</button>
+          </div>
+        </section>
+
         <section class="page-view active" id="page-home" data-view="home">
           <section class="intro">
 <div class="intro-copy">
-<p class="eyebrow green">SPOTIFY · TIKTOK LIVE · OBS</p>
+<p class="eyebrow green">SPOTIFY · TWITCH · TIKTOK LIVE · KICK (PRÓXIMAMENTE) · OBS</p>
 <h2>Tu directo,<br/><span>desde un solo lugar.</span></h2>
 <p class="muted">Controla Spotify, el chat general de TikTok LIVE y Twitch, la voz de IA y tus overlays desde un solo centro de control.</p>
 </div>
@@ -495,6 +514,22 @@
           </section>
         </section>
 
+
+        <section class="page-view" id="page-kick" data-view="kick">
+          <div class="page-intro-card platform-intro kick-platform-intro">
+            <div class="platform-large-icon kick-brand-icon" aria-hidden="true">K</div>
+            <div><p class="eyebrow">PLATFORM INTEGRATION / COMING SOON</p><h3>Kick</h3><p class="muted">Una nueva plataforma para acompañarte en tus directos.</p></div>
+          </div>
+          <section class="panel coming-soon-panel kick-coming-soon-panel" aria-labelledby="kick-coming-soon-title">
+            <div class="coming-soon-symbol kick-coming-soon-symbol" aria-hidden="true">K</div>
+            <div>
+              <span class="coming-soon-badge">PRÓXIMAMENTE</span>
+              <h3 id="kick-coming-soon-title">Kick llegará a NoteLive Studio</h3>
+              <p class="muted">La integración todavía no está disponible. Por ahora, esta sección es solo informativa; aún no conecta con el chat ni con las alertas de Kick.</p>
+            </div>
+          </section>
+        </section>
+
         <section class="page-view" id="page-appearance" data-view="appearance">
           <div class="page-intro-card appearance-intro"><div class="appearance-orbit"><span>✦</span></div><div><p class="eyebrow">YOUR STUDIO / YOUR STYLE</p><h3>Personaliza tu universo</h3><p class="muted">Pon a tu personaje favorito de fondo y define cuánto se ve, cuánto se desenfoca y cómo se sienten los paneles.</p></div></div>
           <div class="appearance-layout">
@@ -535,12 +570,13 @@
         <button class="rail-item active" type="button" data-view-target="home" title="Inicio"><span class="rail-icon"><svg viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg></span><span>Inicio</span></button>
         <button class="rail-item" type="button" data-view-target="chat" title="Chat general"><span class="rail-icon unified-chat-rail"><svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-5 4v-4.5A2.5 2.5 0 0 1 3 13V5.5Z"/><path d="M7.5 8.5h9m-9 3h6"/></svg></span><span>Chat</span></button>
         <button class="rail-item" type="button" data-view-target="twitch" title="Twitch"><span class="rail-icon twitch-rail"><svg viewBox="0 0 24 24"><path d="M5 3h16v12l-5 5h-4l-3 2v-2H5z"/><path d="M10 7v6m5-6v6"/></svg></span><span>Twitch</span></button>
+        <button class="rail-item kick-rail-item" type="button" data-view-target="kick" title="Kick · Próximamente"><span class="rail-icon kick-rail" aria-hidden="true"><strong>K</strong></span><span class="rail-label-wrap"><span>Kick</span><small>PRONTO</small></span></button>
         <button class="rail-item" type="button" data-view-target="spotify" title="Spotify"><span class="rail-icon spotify-rail"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M7 10c3.5-1 7.2-.5 10 1.2M8 13c2.8-.7 5.8-.3 8.2 1.2M9 16c2-.4 4-.1 5.8 1"/></svg></span><span>Spotify</span></button>
         <button class="rail-item" type="button" data-view-target="tiktok" title="TikTok LIVE"><span class="rail-icon tiktok-rail"><svg viewBox="0 0 24 24"><path d="M14 4v10.2a4.2 4.2 0 1 1-3-4V7.4c1.1 1.9 2.6 3 5 3.3V7.6C14.4 7 14 5.9 14 4Z"/></svg></span><span>TikTok</span></button>
         <button class="rail-item" type="button" data-view-target="voice" title="Voz de IA"><span class="rail-icon voice-rail"><svg viewBox="0 0 24 24"><path d="M3 10v4m4-8v12m4-15v18m4-12v6m4-9v12m3-8v4"/></svg></span><span>Voz IA</span></button>
         <button class="rail-item" type="button" data-view-target="obs" title="OBS Studio"><span class="rail-icon obs-rail"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="m10 8 5 2.5-5 2.5zM8 21h8m-4-4v4"/></svg></span><span>OBS</span></button>
       </nav>
-      <div class="rail-bottom"><div class="rail-label">LOOK & FEEL</div><button class="rail-item personalize-item" type="button" data-view-target="appearance" title="Personalizar"><span class="rail-icon"><svg viewBox="0 0 24 24"><path d="m14 6 4 4M4 20l5.5-1.4L20 8.1 15.9 4 5.4 14.5z"/><path d="M3 4h5M5.5 1.5v5M16 17h5M18.5 14.5v5"/></svg></span><span>Personalizar</span></button><div class="rail-version">NOTE<br><b>0.3.7</b></div></div>
+      <div class="rail-bottom"><div class="rail-label">LOOK & FEEL</div><button class="rail-item personalize-item" type="button" data-view-target="appearance" title="Personalizar"><span class="rail-icon"><svg viewBox="0 0 24 24"><path d="m14 6 4 4M4 20l5.5-1.4L20 8.1 15.9 4 5.4 14.5z"/><path d="M3 4h5M5.5 1.5v5M16 17h5M18.5 14.5v5"/></svg></span><span>Personalizar</span></button><div class="rail-version">NOTE<br><b>0.3.8</b></div></div>
     </aside>
   </main>
   <script src="/app.js" defer></script>
