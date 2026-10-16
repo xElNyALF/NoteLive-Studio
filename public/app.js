@@ -723,7 +723,7 @@ const musicPresets = Object.freeze({
     visualizerHeight: 28, visualizerSensitivity: 1.15, showCover: true, showArtist: true, showProgress: true
   },
   orbit: {
-    name: 'Orbit', style: 'vinyl', notificationMode: 'timed', visualizerPlacement: 'inside',
+    name: 'Orbit', style: 'vinyl', notificationMode: 'timed', visualizerPlacement: 'separate',
     accentColor: '#b89bff', visualizerColor: '#c9b7ff', visualizerStyle: 'circle', cardOpacity: 91,
     visualizerHeight: 38, visualizerSensitivity: 1.3, showCover: true, showArtist: true, showProgress: false
   },
