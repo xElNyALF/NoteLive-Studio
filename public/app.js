@@ -1243,27 +1243,47 @@ function appendTwitchChatMessage(item) {
   const empty = feed.querySelector('.empty-chat');
   if (empty) empty.remove();
   const row = document.createElement('article');
-  row.className = 'chat-item';
-  const user = document.createElement('div');
+  row.className = 'chat-item twitch-chat-message-row';
+  row.dataset.messageId = item.id;
+  row.classList.toggle('no-avatar', !unifiedChatConfig.showAvatars);
+  const avatar = makeChatAvatar(item, 'avatar-twitch');
+  const content = document.createElement('div');
+  content.className = 'twitch-chat-message-content';
+  const header = document.createElement('div');
+  header.className = 'twitch-chat-message-header';
+  const user = document.createElement('strong');
   user.className = 'chat-user';
   user.textContent = item.username || 'Usuario';
-  const time = document.createElement('div');
-  time.className = 'chat-time';
-  time.textContent = new Date(item.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  header.appendChild(user);
+  appendUnifiedRoleBadges(header, item);
+  if (unifiedChatConfig.showTimestamp) {
+    const time = document.createElement('time');
+    time.className = 'chat-time';
+    time.textContent = new Date(item.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    header.appendChild(time);
+  }
   const comment = document.createElement('div');
   comment.className = 'chat-comment';
   renderChatMessageContent(comment, item);
   const status = document.createElement('div');
   status.className = 'chat-state';
-  if (item.isModerator) status.textContent = 'MOD';
-  else if (item.isVip) status.textContent = 'VIP';
-  else if (item.isSubscriber) status.textContent = 'SUB';
-  else status.textContent = item.shouldSpeak ? '✓ Preparado para ElevenLabs' : 'No se leerá (voz desactivada o filtro antispam)';
-  row.append(user, time, comment, status);
+  if (item.shouldSpeak) status.textContent = '✓ Preparado para ElevenLabs';
+  else if (item.commandUsed) status.textContent = 'Comando de voz recibido';
+  else status.textContent = 'No se leerá (voz desactivada o filtro antispam)';
+  content.append(header, comment, status);
+  row.append(avatar, content);
   feed.appendChild(row);
   while (feed.querySelectorAll('.chat-item').length > 30) feed.querySelector('.chat-item')?.remove();
   $('#twitch-chat-count').textContent = feed.querySelectorAll('.chat-item').length + ' mensajes';
   feed.scrollTop = feed.scrollHeight;
+}
+
+function updateTwitchChatAvatar(item) {
+  if (!item || !item.id || !item.avatarUrl) return;
+  const row = Array.from($('#twitch-chat-feed').querySelectorAll('.twitch-chat-message-row')).find(node => node.dataset.messageId === item.id);
+  if (!row) return;
+  const avatar = row.querySelector('.chat-avatar');
+  if (avatar) avatar.replaceWith(makeChatAvatar({ ...item, username: row.querySelector('.chat-user')?.textContent || 'Usuario' }, 'avatar-twitch'));
 }
 
 function renderTwitchChatHistory(items = []) {
@@ -1634,6 +1654,8 @@ twitchEvents.addEventListener('message', event => {
       applyTwitchSettings(packet.alertConfig || {}, packet.chatConfig || {}, packet.readChat !== false);
     } else if (packet.type === 'chat') {
       appendTwitchChatMessage(packet.message);
+    } else if (packet.type === 'chat-update') {
+      updateTwitchChatAvatar(packet.message);
     } else if (packet.type === 'follow' && packet.alert?.test) {
       setTwitchMessage('Alerta de prueba enviada correctamente.', 'success');
     } else if (packet.type === 'voice-config') {
