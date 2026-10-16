@@ -1,11 +1,12 @@
 'use strict';
 
-const { contextBridge } = require('electron');
+const { contextBridge, ipcRenderer } = require('electron');
 
-// Intentionally expose only harmless app metadata. The local server keeps all
-// Spotify/ElevenLabs credentials outside the renderer process.
+// API explícita: no expone Node.js ni archivos al código de la interfaz.
 contextBridge.exposeInMainWorld('noteLiveDesktop', Object.freeze({
   appName: 'NoteLive Studio',
   isDesktopApp: true,
-  version: '0.3.0'
+  version: '0.3.1',
+  toggleFloatingOverlay: () => ipcRenderer.invoke('notelive:toggle-floating-overlay'),
+  closeFloatingOverlay: () => ipcRenderer.send('notelive:close-floating-overlay')
 }));
