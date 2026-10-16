@@ -18,7 +18,9 @@ const DATA_DIR = path.resolve(process.env.NOTE_LIVE_DATA_DIR || ROOT);
 fs.mkdirSync(DATA_DIR, { recursive: true });
 const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
 const TOKENS_FILE = path.join(DATA_DIR, 'tokens.json');
+const TWITCH_TOKENS_FILE = path.join(DATA_DIR, 'twitch-tokens.json');
 const REDIRECT_URI = `http://${HOST}:${PORT}/callback`;
+const TWITCH_REDIRECT_URI = `http://localhost:${PORT}/twitch/callback`;
 const AUTHORIZE_URL = 'https://accounts.spotify.com/authorize';
 const TOKEN_URL = 'https://accounts.spotify.com/api/token';
 const CURRENTLY_PLAYING_URL = 'https://api.spotify.com/v1/me/player/currently-playing?additional_types=track,episode';
@@ -74,15 +76,82 @@ function normalizeOverlayConfig(value) {
   };
 }
 
+
+const DEFAULT_TWITCH_ALERT_CONFIG = Object.freeze({
+  enabled: true,
+  style: 'card',
+  durationSeconds: 7,
+  accentColor: '#a970ff',
+  title: '¡Nuevo follow!',
+  message: '{username} ahora te sigue',
+  soundEnabled: true
+});
+
+const DEFAULT_TWITCH_CHAT_CONFIG = Object.freeze({
+  enabled: true,
+  accentColor: '#a970ff',
+  backgroundOpacity: 82,
+  maxMessages: 6,
+  fontSize: 17,
+  showTimestamp: false,
+  compact: false
+});
+
+function normalizeTwitchAlertConfig(value) {
+  const input = value && typeof value === 'object' ? value : {};
+  const validHex = candidate => typeof candidate === 'string' && /^#[0-9a-fA-F]{6}$/.test(candidate);
+  return {
+    enabled: input.enabled !== false,
+    style: ['card', 'neon', 'minimal', 'pixel'].includes(input.style) ? input.style : DEFAULT_TWITCH_ALERT_CONFIG.style,
+    durationSeconds: Math.round(clampNumber(input.durationSeconds, 3, 20, DEFAULT_TWITCH_ALERT_CONFIG.durationSeconds)),
+    accentColor: validHex(input.accentColor) ? input.accentColor : DEFAULT_TWITCH_ALERT_CONFIG.accentColor,
+    title: cleanConfigText(input.title, 64, DEFAULT_TWITCH_ALERT_CONFIG.title),
+    message: cleanConfigText(input.message, 120, DEFAULT_TWITCH_ALERT_CONFIG.message).includes('{username}')
+      ? cleanConfigText(input.message, 120, DEFAULT_TWITCH_ALERT_CONFIG.message)
+      : DEFAULT_TWITCH_ALERT_CONFIG.message,
+    soundEnabled: input.soundEnabled !== false
+  };
+}
+
+function normalizeTwitchChatConfig(value) {
+  const input = value && typeof value === 'object' ? value : {};
+  const validHex = candidate => typeof candidate === 'string' && /^#[0-9a-fA-F]{6}$/.test(candidate);
+  return {
+    enabled: input.enabled !== false,
+    accentColor: validHex(input.accentColor) ? input.accentColor : DEFAULT_TWITCH_CHAT_CONFIG.accentColor,
+    backgroundOpacity: Math.round(clampNumber(input.backgroundOpacity, 20, 100, DEFAULT_TWITCH_CHAT_CONFIG.backgroundOpacity)),
+    maxMessages: Math.round(clampNumber(input.maxMessages, 2, 12, DEFAULT_TWITCH_CHAT_CONFIG.maxMessages)),
+    fontSize: Math.round(clampNumber(input.fontSize, 12, 24, DEFAULT_TWITCH_CHAT_CONFIG.fontSize)),
+    showTimestamp: input.showTimestamp === true,
+    compact: input.compact === true
+  };
+}
+
+function cleanConfigText(value, maxLength, fallback) {
+  const text = String(value ?? fallback).replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim();
+  return (text || fallback).slice(0, maxLength);
+}
+
 let config = loadConfig();
 let tokens = loadTokens();
+let twitchTokens = loadTwitchTokens();
 let pendingAuth = new Map();
+let pendingTwitchAuth = new Map();
+let twitchSocket = null;
+let twitchReconnectTimer = null;
+let twitchSocketGeneration = 0;
+let twitchShouldReconnect = true;
+let twitchSessionId = '';
+let recentTwitchChatMessages = [];
+let recentTwitchAlert = null;
+let twitchStatus = { connected: false, status: 'disconnected', username: twitchTokens?.username || '', broadcasterId: twitchTokens?.userId || '', error: '' };
 let pollTimer = null;
 let polling = false;
 let lastError = '';
 const sseClients = new Set();
 const tiktokSseClients = new Set();
 const overlaySseClients = new Set();
+const twitchSseClients = new Set();
 let audioVisualizerState = { active: false, levels: Array(32).fill(0), rms: 0, updatedAt: Date.now() };
 let tiktokConnection = null;
 let tiktokStatus = { connected: false, status: 'disconnected', username: config.tiktokUsername || '', error: '' };
@@ -107,6 +176,11 @@ function loadConfig() {
   return {
     clientId: typeof data.clientId === 'string' ? data.clientId.trim() : '',
     tiktokUsername: typeof data.tiktokUsername === 'string' ? data.tiktokUsername.trim().replace(/^@/, '') : '',
+    twitchClientId: typeof data.twitchClientId === 'string' ? data.twitchClientId.trim() : '',
+    twitchClientSecret: typeof data.twitchClientSecret === 'string' ? data.twitchClientSecret.trim() : '',
+    twitchReadChat: data.twitchReadChat !== false,
+    twitchAlert: normalizeTwitchAlertConfig(data.twitchAlert),
+    twitchChatOverlay: normalizeTwitchChatConfig(data.twitchChatOverlay),
     elevenLabsApiKey: typeof data.elevenLabsApiKey === 'string' ? data.elevenLabsApiKey.trim() : '',
     elevenLabsVoiceId: typeof data.elevenLabsVoiceId === 'string' ? data.elevenLabsVoiceId.trim() : '',
     elevenLabsModelId: typeof data.elevenLabsModelId === 'string' ? data.elevenLabsModelId : 'eleven_multilingual_v2',
@@ -125,6 +199,11 @@ function loadTokens() {
   } catch {
     return null;
   }
+}
+
+function loadTwitchTokens() {
+  try { return JSON.parse(fs.readFileSync(TWITCH_TOKENS_FILE, 'utf8')); }
+  catch { return null; }
 }
 
 function persistJson(filePath, value) {
@@ -190,6 +269,7 @@ function publicStatus() {
     playback: playbackState,
     overlay: config.overlay,
     audioVisualizerActive: audioVisualizerState.active,
+    twitch: { ...twitchStatus, hasClientId: Boolean(config.twitchClientId), hasClientSecret: Boolean(config.twitchClientSecret), redirectUri: TWITCH_REDIRECT_URI, readChat: config.twitchReadChat !== false, alertConfig: config.twitchAlert, chatConfig: config.twitchChatOverlay, alertUrl: `http://${HOST}:${PORT}/twitch-overlay`, chatOverlayUrl: `http://${HOST}:${PORT}/twitch-chat-overlay`, history: recentTwitchChatMessages.slice(0, 30), recentAlert: recentTwitchAlert },
     tiktok: { ...tiktokStatus, username: tiktokStatus.username || config.tiktokUsername || '' },
     chatHistory: recentChatMessages.slice(0, 30),
     voice: {
@@ -225,6 +305,13 @@ function publishOverlayEvent(packet) {
   const data = 'data: ' + JSON.stringify(packet) + '\n\n';
   for (const client of overlaySseClients) {
     try { client.write(data); } catch { overlaySseClients.delete(client); }
+  }
+}
+
+function publishTwitchEvent(packet) {
+  const data = 'data: ' + JSON.stringify(packet) + '\n\n';
+  for (const client of twitchSseClients) {
+    try { client.write(data); } catch { twitchSseClients.delete(client); }
   }
 }
 
