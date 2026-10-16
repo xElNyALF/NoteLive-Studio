@@ -10,6 +10,8 @@ const disconnectButton = $('#disconnect-button');
 const tiktokMessage = $('#tiktok-message');
 const voiceMessage = $('#voice-message');
 const renderedMessageIds = new Set();
+let unifiedChatMessages = [];
+let unifiedChatFilter = 'all';
 
 function message(element, text, kind = '') {
   if (!element) return;
@@ -59,6 +61,45 @@ function renderTikTokStatus(data = {}) {
   }
 }
 
+function trustedChatImageUrl(value, platform) {
+  try {
+    const url = new URL(String(value || ''));
+    if (url.protocol !== 'https:') return '';
+    const host = url.hostname.toLowerCase();
+    if (platform === 'twitch' && (host === 'jtvnw.net' || host.endsWith('.jtvnw.net'))) return url.href;
+    if (platform === 'tiktok' && (host === 'tiktokcdn.com' || host.endsWith('.tiktokcdn.com'))) return url.href;
+    return '';
+  } catch {
+    return '';
+  }
+}
+
+function renderChatMessageContent(target, item) {
+  target.replaceChildren();
+  const segments = Array.isArray(item.segments) && item.segments.length
+    ? item.segments
+    : [{ type: 'text', text: item.comment || '' }];
+  for (const segment of segments.slice(0, 120)) {
+    if (segment && (segment.type === 'emote' || segment.type === 'image')) {
+      const src = trustedChatImageUrl(segment.url, item.platform);
+      if (src) {
+        const image = document.createElement('img');
+        image.className = 'chat-emote';
+        image.src = src;
+        image.alt = String(segment.alt || segment.text || (item.platform === 'tiktok' ? 'Sticker de TikTok' : 'Emote de Twitch')).slice(0, 80);
+        image.title = image.alt;
+        image.loading = 'lazy';
+        image.referrerPolicy = 'no-referrer';
+        target.appendChild(image);
+      } else if (segment.text) {
+        target.appendChild(document.createTextNode(String(segment.text)));
+      }
+    } else {
+      target.appendChild(document.createTextNode(String(segment && segment.text || '')));
+    }
+  }
+}
+
 function appendChatMessage(item) {
   if (!item || !item.id || renderedMessageIds.has(item.id)) return;
   renderedMessageIds.add(item.id);
@@ -78,7 +119,7 @@ function appendChatMessage(item) {
   time.textContent = new Date(item.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   const comment = document.createElement('div');
   comment.className = 'chat-comment';
-  comment.textContent = item.comment || '';
+  renderChatMessageContent(comment, item);
   const status = document.createElement('div');
   status.className = 'chat-state';
   status.textContent = item.shouldSpeak ? '✓ Preparado para leerse en voz alta' : 'No se leerá (lector sin configurar o filtro antispam)';
@@ -419,6 +460,7 @@ const viewMeta = {
   home: { eyebrow: 'STUDIO OVERVIEW', title: 'Tu centro creativo', subtitle: 'Un solo lugar para conectar, personalizar y controlar tus directos.' },
   twitch: { eyebrow: 'STREAMING PLATFORM', title: 'Twitch', subtitle: 'Conecta tu canal, personaliza alertas y muestra el chat en OBS.' },
   spotify: { eyebrow: 'MUSIC INTEGRATION', title: 'Spotify', subtitle: 'Conecta tu música y personaliza la notificación que verán tus espectadores.' },
+  chat: { eyebrow: 'MULTI-PLATFORM / LIVE CHAT', title: 'Chat general', subtitle: 'Twitch y TikTok LIVE juntos, con el origen y los emotes de cada mensaje.' },
   tiktok: { eyebrow: 'COMMUNITY / LIVE CHAT', title: 'TikTok LIVE', subtitle: 'Mensajes del chat, estado del directo y conexión con el lector de voz.' },
   voice: { eyebrow: 'TEXT TO SPEECH', title: 'Voz de IA', subtitle: 'Controla ElevenLabs, la plantilla de mensajes, la velocidad y los filtros.' },
   obs: { eyebrow: 'OUTPUT / BROADCAST', title: 'OBS Studio', subtitle: 'Configura las Browser Sources para música y audio.' },
@@ -1151,7 +1193,7 @@ function appendTwitchChatMessage(item) {
   time.textContent = new Date(item.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   const comment = document.createElement('div');
   comment.className = 'chat-comment';
-  comment.textContent = item.comment || '';
+  renderChatMessageContent(comment, item);
   const status = document.createElement('div');
   status.className = 'chat-state';
   if (item.isModerator) status.textContent = 'MOD';
@@ -1286,6 +1328,117 @@ $('#twitch-copy-chat-url').addEventListener('click', () => copyTwitchValue('twit
 [
   'twitch-alert-duration', 'twitch-chat-opacity', 'twitch-chat-font-size'
 ].forEach(id => $('#' + id).addEventListener('input', updateTwitchValueLabels));
+
+const unifiedChatEvents = new EventSource('/api/chat/events');
+unifiedChatEvents.addEventListener('message', event => {
+  try {
+    const packet = JSON.parse(event.data);
+    if (packet.type === 'init') {
+      unifiedChatMessages = (packet.history || []).slice(0, 120).sort((a, b) => Number(a.timestamp || 0) - Number(b.timestamp || 0));
+      if (packet.overlayUrl) $('#unified-chat-url').textContent = packet.overlayUrl;
+      renderUnifiedPlatformStatus(packet.platforms || {});
+      renderUnifiedChatFeed();
+    } else if (packet.type === 'status') {
+      renderUnifiedPlatformStatus(packet.platforms || {});
+    } else if (packet.type === 'chat' && packet.message) {
+      if (!unifiedChatMessages.some(item => item.id === packet.message.id)) {
+        unifiedChatMessages.push(packet.message);
+        unifiedChatMessages.sort((a, b) => Number(a.timestamp || 0) - Number(b.timestamp || 0));
+        if (unifiedChatMessages.length > 120) unifiedChatMessages = unifiedChatMessages.slice(-120);
+        renderUnifiedChatFeed();
+      }
+    }
+  } catch {}
+});
+unifiedChatEvents.onerror = () => {};
+
+document.querySelectorAll('[data-chat-filter]').forEach(button => {
+  button.addEventListener('click', () => {
+    unifiedChatFilter = button.dataset.chatFilter || 'all';
+    document.querySelectorAll('[data-chat-filter]').forEach(other => {
+      const active = other === button;
+      other.classList.toggle('is-active', active);
+      other.setAttribute('aria-pressed', String(active));
+    });
+    renderUnifiedChatFeed();
+  });
+});
+
+$('#unified-chat-copy-url').addEventListener('click', async () => {
+  const button = $('#unified-chat-copy-url');
+  try {
+    await navigator.clipboard.writeText($('#unified-chat-url').textContent.trim());
+    button.textContent = 'Copiada ✓';
+    setTimeout(() => { button.textContent = 'Copiar URL'; }, 1600);
+  } catch {
+    button.textContent = 'Selecciona y copia la URL';
+  }
+});
+$('#unified-chat-preview').addEventListener('click', () => window.open('/unified-chat-overlay?preview=1', '_blank', 'noopener'));
+
+function renderUnifiedPlatformStatus(platforms = {}) {
+  for (const [platform, label] of [['tiktok', 'TikTok LIVE'], ['twitch', 'Twitch']]) {
+    const element = $('#unified-' + platform + '-status');
+    if (!element) continue;
+    const state = platforms[platform] || {};
+    element.classList.toggle('is-connected', state.connected === true);
+    const username = state.username ? ' · @' + state.username : '';
+    element.textContent = state.connected ? label + ' · conectado' + username : label + ' · desconectado';
+    const dot = document.createElement('i');
+    element.prepend(dot);
+  }
+}
+
+function renderUnifiedChatFeed() {
+  const feed = $('#unified-chat-feed');
+  if (!feed) return;
+  const filtered = unifiedChatMessages.filter(item => unifiedChatFilter === 'all' || item.platform === unifiedChatFilter);
+  feed.replaceChildren();
+  if (!filtered.length) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-chat';
+    empty.textContent = unifiedChatFilter === 'all'
+      ? 'Conecta Twitch o TikTok LIVE para ver los mensajes aquí.'
+      : 'Todavía no hay mensajes de ' + (unifiedChatFilter === 'twitch' ? 'Twitch' : 'TikTok LIVE') + '.';
+    feed.appendChild(empty);
+    $('#unified-chat-count').textContent = '0 mensajes';
+    return;
+  }
+  const shown = filtered.slice(-80);
+  shown.forEach(item => {
+    const row = document.createElement('article');
+    row.className = 'chat-item unified-chat-message ' + (item.platform === 'twitch' ? 'source-twitch' : 'source-tiktok');
+    row.dataset.platform = item.platform || 'tiktok';
+
+    const header = document.createElement('div');
+    header.className = 'unified-message-header';
+    const platformBadge = document.createElement('span');
+    platformBadge.className = 'unified-source-badge ' + (item.platform === 'twitch' ? 'source-twitch' : 'source-tiktok');
+    platformBadge.textContent = item.platform === 'twitch' ? 'TWITCH' : 'TIKTOK LIVE';
+    const username = document.createElement('strong');
+    username.className = 'chat-user';
+    username.textContent = item.username || 'Usuario';
+    const time = document.createElement('time');
+    time.className = 'chat-time';
+    time.textContent = new Date(item.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    header.append(platformBadge, username, time);
+
+    if (item.isModerator || item.isVip || item.isSubscriber) {
+      const role = document.createElement('span');
+      role.className = 'unified-role-badge';
+      role.textContent = item.isModerator ? 'MOD' : item.isVip ? 'VIP' : 'SUB';
+      header.appendChild(role);
+    }
+
+    const body = document.createElement('div');
+    body.className = 'chat-comment unified-message-body';
+    renderChatMessageContent(body, item);
+    row.append(header, body);
+    feed.appendChild(row);
+  });
+  $('#unified-chat-count').textContent = filtered.length + (filtered.length === 1 ? ' mensaje' : ' mensajes');
+  feed.scrollTop = feed.scrollHeight;
+}
 
 const twitchEvents = new EventSource('/api/twitch/events');
 twitchEvents.addEventListener('message', event => {
