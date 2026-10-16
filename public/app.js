@@ -417,7 +417,7 @@ tiktokEvents.addEventListener('message', event => {
 // Main navigation: each service has its own workspace instead of a long page.
 const viewMeta = {
   home: { eyebrow: 'STUDIO OVERVIEW', title: 'Tu centro creativo', subtitle: 'Un solo lugar para conectar, personalizar y controlar tus directos.' },
-  twitch: { eyebrow: 'STREAMING PLATFORM', title: 'Twitch', subtitle: 'Un espacio preparado para futuras integraciones de chat y alertas.' },
+  twitch: { eyebrow: 'STREAMING PLATFORM', title: 'Twitch', subtitle: 'Conecta tu canal, personaliza alertas y muestra el chat en OBS.' },
   spotify: { eyebrow: 'MUSIC INTEGRATION', title: 'Spotify', subtitle: 'Conecta tu música y personaliza la notificación que verán tus espectadores.' },
   tiktok: { eyebrow: 'COMMUNITY / LIVE CHAT', title: 'TikTok LIVE', subtitle: 'Mensajes del chat, estado del directo y conexión con el lector de voz.' },
   voice: { eyebrow: 'TEXT TO SPEECH', title: 'Voz de IA', subtitle: 'Controla ElevenLabs, la plantilla de mensajes, la velocidad y los filtros.' },
