@@ -443,6 +443,10 @@ if (!gotLock) {
     process.env.NOTE_LIVE_DATA_DIR = dataDir;
     process.env.NOTE_LIVE_PORT = String(PORT);
 
+    // Public OAuth client: safe to ship the Client ID, never a Client Secret.
+    process.env.NOTE_LIVE_TWITCH_PUBLIC_CLIENT = '1';
+    process.env.NOTE_LIVE_TWITCH_PUBLIC_CLIENT_ID = '6fayuoirqyxpz2a1s1lliws6jahwgg';
+
     try {
       serverModule = require(path.join(__dirname, '..', 'server.js'));
       localServer = await serverModule.startServer();
