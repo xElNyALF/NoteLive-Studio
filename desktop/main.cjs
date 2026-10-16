@@ -1,6 +1,6 @@
 'use strict';
 
-const { app, BrowserWindow, dialog, shell, Menu } = require('electron');
+const { app, BrowserWindow, dialog, shell, Menu, desktopCapturer, session, ipcMain, screen } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -19,12 +19,68 @@ if (!gotLock) {
   app.quit();
 } else {
   let mainWindow = null;
+  let floatingOverlayWindow = null;
   let localServer = null;
   let isQuitting = false;
   let serverModule = null;
   let updateCheckTimer = null;
   let manualUpdateCheck = false;
   let updateReady = false;
+
+
+  function createFloatingOverlay() {
+    if (floatingOverlayWindow && !floatingOverlayWindow.isDestroyed()) {
+      floatingOverlayWindow.show();
+      floatingOverlayWindow.focus();
+      return floatingOverlayWindow;
+    }
+    const area = screen.getPrimaryDisplay().workArea;
+    floatingOverlayWindow = new BrowserWindow({
+      width: 540,
+      height: 190,
+      x: Math.max(area.x, area.x + area.width - 560),
+      y: area.y + 26,
+      title: APP_NAME + ' · Mini overlay',
+      frame: false,
+      transparent: true,
+      backgroundColor: '#00000000',
+      alwaysOnTop: true,
+      resizable: true,
+      minimizable: false,
+      maximizable: false,
+      skipTaskbar: true,
+      hasShadow: false,
+      webPreferences: {
+        preload: path.join(__dirname, 'preload.cjs'),
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: true,
+        webSecurity: true
+      }
+    });
+    floatingOverlayWindow.setAlwaysOnTop(true, 'floating');
+    floatingOverlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+    floatingOverlayWindow.on('closed', () => { floatingOverlayWindow = null; });
+    floatingOverlayWindow.webContents.setWindowOpenHandler(({ url }) => {
+      if (url.startsWith(BASE_URL + '/')) return { action: 'allow' };
+      if (/^https?:\/\//i.test(url)) shell.openExternal(url);
+      return { action: 'deny' };
+    });
+    floatingOverlayWindow.loadURL(BASE_URL + '/overlay?floating=1');
+    return floatingOverlayWindow;
+  }
+
+  ipcMain.handle('notelive:toggle-floating-overlay', () => {
+    if (floatingOverlayWindow && !floatingOverlayWindow.isDestroyed()) {
+      floatingOverlayWindow.close();
+      return { open: false };
+    }
+    createFloatingOverlay();
+    return { open: true };
+  });
+  ipcMain.on('notelive:close-floating-overlay', () => {
+    if (floatingOverlayWindow && !floatingOverlayWindow.isDestroyed()) floatingOverlayWindow.close();
+  });
 
   app.on('second-instance', () => {
     if (mainWindow) {
@@ -307,6 +363,19 @@ if (!gotLock) {
   }
 
   app.whenReady().then(async () => {
+    // Se activa solo desde el botón del visualizador. Electron entrega audio WASAPI loopback en Windows.
+    session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
+      const requestUrl = request && request.frame && request.frame.url;
+      if (requestUrl && !requestUrl.startsWith(BASE_URL)) return callback(null);
+      desktopCapturer.getSources({
+        types: ['screen'],
+        thumbnailSize: { width: 0, height: 0 }
+      }).then(sources => {
+        const firstScreen = sources && sources[0];
+        callback(firstScreen ? { video: firstScreen, audio: 'loopback' } : null);
+      }).catch(() => callback(null));
+    });
+
     const dataDir = app.getPath('userData');
     fs.mkdirSync(dataDir, { recursive: true });
     await importLegacySettings(dataDir);
