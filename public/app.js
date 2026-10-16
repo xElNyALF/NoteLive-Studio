@@ -1235,7 +1235,7 @@ $('#twitch-connect').addEventListener('click', async () => {
   } catch (error) {
     setTwitchMessage(error.message || 'No se pudo iniciar la conexión con Twitch.', 'error');
   } finally {
-    button.disabled = false;
+    button.disabled = Boolean(latestTwitchState.connected) || !latestTwitchState.hasClientId || !latestTwitchState.hasClientSecret;
   }
 });
 
