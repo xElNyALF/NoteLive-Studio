@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Spotify Live Overlay</title>
+  <link rel="stylesheet" href="/overlay.css">
+</head>
+<body>
+  <main class="stage" aria-live="polite">
+    <article id="song-banner" class="song-banner" aria-label="Notificación de reproducción">
+      <div class="accent-line" aria-hidden="true"></div>
+      <div class="cover-stack" aria-hidden="true">
+        <div class="vinyl-record">
+          <span class="vinyl-label"></span>
+        </div>
+        <div class="cover-wrap">
+          <img id="album-cover" class="album-cover" alt="Portada del álbum" referrerpolicy="no-referrer">
+          <div id="cover-fallback" class="cover-fallback" hidden>♫</div>
+          <span class="cover-glow"></span>
+        </div>
+      </div>
+      <div class="song-info">
+        <div class="meta-row">
+          <span class="playing-indicator" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+          <span id="eyebrow-label" class="eyebrow-label">NOW PLAYING</span>
+          <span class="brand-label">SPOTIFY</span>
+        </div>
+        <h1 id="song-title">Esperando reproducción</h1>
+        <p id="song-artist">Conecta Spotify desde el panel</p>
+        <div class="progress-area">
+          <div class="progress-track"><div id="progress-fill" class="progress-fill"></div><span id="progress-dot" class="progress-dot"></span></div>
+          <div class="time-row"><span id="current-time">0:00</span><span id="total-time">0:00</span></div>
+        </div>
+      </div>
+      <div id="play-state" class="play-state" aria-label="Estado de reproducción"><span></span></div>
+    </article>
+    <div id="connection-warning" class="connection-warning" hidden>Esperando conexión con Spotify…</div>
+  </main>
+  <script src="/overlay.js" defer></script>
+</body>
+</html>

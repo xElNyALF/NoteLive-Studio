@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>NoteLive Studio · Centro creativo</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="wallpaper-layer" id="wallpaper-layer" aria-hidden="true"></div>
+  <div class="wallpaper-dimmer" id="wallpaper-dimmer" aria-hidden="true"></div>
+  <main class="app-layout">
+    <div class="workspace">
+      <header class="topbar">
+        <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
+        <div class="brand-copy">
+          <p class="eyebrow">CREATOR TOOLKIT / NOTE ECOSYSTEM</p>
+          <h1>NoteLive <span>Studio</span></h1>
+        </div>
+        <div class="topbar-right">
+          <div class="server-pill"><span class="pulse-dot"></span><span>LOCAL APP</span></div>
+          <div class="topbar-divider"></div>
+          <button class="top-icon-button" type="button" data-go="appearance" title="Personalizar apariencia" aria-label="Personalizar apariencia">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v2M12 19v2M3 12h2m14 0h2M5.64 5.64l1.42 1.42m9.88 9.88 1.42 1.42m0-12.72-1.42 1.42m-9.88 9.88-1.42 1.42"/><circle cx="12" cy="12" r="5"/></svg>
+          </button>
+        </div>
+      </header>
+      <div class="workspace-scroll">
+        <div class="page-heading-bar">
+          <div>
+            <p class="eyebrow green" id="page-eyebrow">STUDIO OVERVIEW</p>
+            <h2 id="page-title">Tu centro creativo</h2>
+            <p id="page-subtitle" class="muted">Un solo lugar para conectar, personalizar y controlar tus directos.</p>
+          </div>
+          <div class="live-pill"><span class="pulse-dot"></span> PANEL LISTO</div>
+        </div>
+
+        <section class="page-view active" id="page-home" data-view="home">
+          <section class="intro">
+<div class="intro-copy">
+<p class="eyebrow green">SPOTIFY · TIKTOK LIVE · OBS</p>
+<h2>Tu directo,<br/><span>desde un solo lugar.</span></h2>
+<p class="muted">Controla Spotify, el chat de TikTok LIVE, la voz de IA y tus overlays desde un solo centro de control.</p>
+</div>
+<div aria-hidden="true" class="mini-preview">
+<div class="mini-cover"><span>♪</span></div>
+<div class="mini-lines"><i></i><i></i><i></i><b></b></div>
+<div class="mini-eq"><span></span><span></span><span></span><span></span><span></span></div>
+</div>
+</section>
+          <div class="dashboard-grid">
+            <button class="overview-card spotify-overview" type="button" data-go="spotify">
+              <span class="overview-icon spotify-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M7 10c3.5-1 7.2-.5 10 1.2M8 13c2.8-.7 5.8-.3 8.2 1.2M9 16c2-.4 4-.1 5.8 1"/></svg></span>
+              <span class="overview-copy"><strong>Spotify</strong><span id="home-spotify-state">Conecta tu música</span></span>
+              <span class="overview-arrow">↗</span>
+            </button>
+            <button class="overview-card tiktok-overview" type="button" data-go="tiktok">
+              <span class="overview-icon tiktok-icon"><svg viewBox="0 0 24 24"><path d="M14 4v10.2a4.2 4.2 0 1 1-3-4V7.4c1.1 1.9 2.6 3 5 3.3V7.6C14.4 7 14 5.9 14 4Z"/></svg></span>
+              <span class="overview-copy"><strong>TikTok LIVE</strong><span id="home-tiktok-state">Chat y comentarios</span></span>
+              <span class="overview-arrow">↗</span>
+            </button>
+            <button class="overview-card voice-overview" type="button" data-go="voice">
+              <span class="overview-icon voice-icon"><svg viewBox="0 0 24 24"><path d="M3 10v4m4-8v12m4-15v18m4-12v6m4-9v12m3-8v4"/></svg></span>
+              <span class="overview-copy"><strong>Voz IA</strong><span>ElevenLabs TTS</span></span>
+              <span class="overview-arrow">↗</span>
+            </button>
+            <button class="overview-card obs-overview" type="button" data-go="obs">
+              <span class="overview-icon obs-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="m10 8 5 2.5-5 2.5zM8 21h8m-4-4v4"/></svg></span>
+              <span class="overview-copy"><strong>OBS Studio</strong><span>Fuentes y overlays</span></span>
+              <span class="overview-arrow">↗</span>
+            </button>
+          </div>
+          <section class="panel welcome-panel">
+            <div class="welcome-orb" aria-hidden="true"><span>♪</span></div>
+            <div class="welcome-copy"><p class="eyebrow">HECHO PARA TU STREAM</p><h3>Hazlo tuyo.</h3><p class="muted">Usa un fondo de tu personaje favorito, ajusta el desenfoque, el brillo y el estilo del panel desde Personalizar.</p></div>
+            <button class="button button-primary" type="button" data-go="appearance">Personalizar estudio <span>↗</span></button>
+          </section>
+        </section>
+
+        <section class="page-view" id="page-spotify" data-view="spotify">
+          <div class="page-intro-card platform-intro spotify-platform-intro"><div class="platform-large-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M7 10c3.5-1 7.2-.5 10 1.2M8 13c2.8-.7 5.8-.3 8.2 1.2M9 16c2-.4 4-.1 5.8 1"/></svg></div><div><p class="eyebrow">MUSIC INTEGRATION</p><h3>Spotify</h3><p class="muted">Conecta tu cuenta y lleva la canción actual a OBS con una notificación animada.</p></div></div>
+          <section class="panel config-panel">
+<div class="section-heading">
+<div class="step-number">01</div>
+<div><h3>Credenciales de Spotify</h3><p class="muted">Usamos Client ID + OAuth con PKCE. No necesitas un Client Secret.</p></div>
+</div>
+<form id="client-form">
+<label for="client-id">Client ID</label>
+<div class="input-row">
+<input autocomplete="off" id="client-id" minlength="20" name="clientId" placeholder="Pega aquí el Client ID" required="" spellcheck="false" type="text"/>
+<button class="button button-primary" type="submit">Guardar ID</button>
+</div>
+<p class="field-hint">Se guarda en los datos privados de NoteLive Studio; en modo web, junto al servidor.</p>
+</form>
+<div class="redirect-box">
+<div><span class="tiny-label">REDIRECT URI · REGÍSTRALO EN SPOTIFY</span><code id="redirect-uri">http://127.0.0.1:8787/callback</code></div>
+<button aria-label="Copiar Redirect URI" class="icon-button" id="copy-redirect" title="Copiar Redirect URI" type="button">⧉</button>
+</div>
+<div aria-live="polite" class="inline-message" id="form-message" role="status"></div>
+</section>
+          <section class="panel connect-panel">
+<div class="section-heading">
+<div class="step-number">02</div>
+<div><h3>Conexión y estado</h3><p class="muted">Autoriza solo la lectura de lo que estás reproduciendo.</p></div>
+</div>
+<div class="connection-status">
+<div class="status-icon" id="status-icon">♪</div>
+<div class="status-copy"><strong id="connection-title">Todavía no conectado</strong><span id="connection-desc">Guarda tu Client ID y autoriza tu cuenta de Spotify.</span></div>
+<span class="status-tag" id="connection-tag">OFFLINE</span>
+</div>
+<div class="button-row">
+<a aria-disabled="true" class="button button-primary disabled" href="/login" id="connect-button">Conectar con Spotify <span>↗</span></a>
+<a class="button button-secondary" href="/overlay" rel="noreferrer" target="_blank">Abrir overlay <span>↗</span></a>
+<button class="button button-quiet" hidden="" id="disconnect-button" type="button">Desconectar</button>
+</div>
+<div aria-live="polite" class="api-message" id="api-message" role="status"></div>
+</section>
+        </section>
+
+        <section class="page-view" id="page-tiktok" data-view="tiktok">
+          <div class="page-intro-card platform-intro tiktok-platform-intro"><div class="platform-large-icon"><svg viewBox="0 0 24 24"><path d="M14 4v10.2a4.2 4.2 0 1 1-3-4V7.4c1.1 1.9 2.6 3 5 3.3V7.6C14.4 7 14 5.9 14 4Z"/></svg></div><div><p class="eyebrow">COMMUNITY / LIVE CHAT</p><h3>TikTok LIVE</h3><p class="muted">Lee el chat de un directo, revisa los comentarios entrantes y envíalos al lector de voz.</p></div></div>
+          <section class="panel tiktok-panel">
+<div class="section-heading">
+<div class="step-number">03</div>
+<div><h3>Chat de TikTok LIVE</h3><p class="muted">Conecta con el usuario que está transmitiendo y muestra los comentarios que llegan en directo.</p></div>
+</div>
+<div class="input-row tiktok-connect-row">
+<div class="field-stack"><label for="tiktok-username">Usuario de TikTok</label><input autocomplete="off" id="tiktok-username" maxlength="25" placeholder="Ejemplo: Noukan" spellcheck="false" type="text"/></div>
+<button class="button button-primary" id="tiktok-connect" type="button">Conectar chat</button>
+<button class="button button-quiet" hidden="" id="tiktok-disconnect" type="button">Desconectar</button>
+</div>
+<p class="field-hint">Escribe el nombre de usuario, no el enlace completo ni la arroba. Este conector es comunitario y no oficial; puede dejar de funcionar si TikTok cambia su servicio.</p>
+<div class="connection-status compact-status">
+<div class="status-icon">☷</div>
+<div class="status-copy"><strong id="tiktok-status-title">Chat desconectado</strong><span id="tiktok-status-desc">Conecta con el usuario que está en directo para recibir mensajes.</span></div>
+<span class="status-tag" id="tiktok-status-tag">OFFLINE</span>
+</div>
+<div aria-live="polite" class="api-message" id="tiktok-message" role="status"></div>
+<div class="chat-heading"><span class="tiny-label">MENSAJES RECIENTES</span><span class="chat-count" id="chat-count">0 mensajes</span></div>
+<div aria-live="polite" class="chat-feed" id="chat-feed"><div class="empty-chat">Los comentarios aparecerán aquí cuando el chat esté conectado.</div></div>
+</section>
+        </section>
+
+        <section class="page-view" id="page-voice" data-view="voice">
+          <div class="page-intro-card platform-intro voice-platform-intro"><div class="platform-large-icon"><svg viewBox="0 0 24 24"><path d="M3 10v4m4-8v12m4-15v18m4-12v6m4-9v12m3-8v4"/></svg></div><div><p class="eyebrow">TEXT TO SPEECH</p><h3>Voz de IA</h3><p class="muted">Personaliza cómo suenan los mensajes del chat y administra tu integración con ElevenLabs.</p></div></div>
+          <section class="panel voice-panel">
+<div class="section-heading">
+<div class="step-number">04</div>
+<div><h3>Lector de voz · ElevenLabs</h3><p class="muted">Lee el nombre de usuario y su comentario, por ejemplo: «Noukan dice: hola, ¿qué tal?».</p></div>
+</div>
+<div class="notice-card"><strong>Tu clave permanece local.</strong><span>Se guarda en config.json y solo la usa el servidor Node. Nunca se envía al navegador de OBS.</span></div>
+<div class="field-stack full-field">
+<label for="eleven-api-key">API key de ElevenLabs</label>
+<input autocomplete="new-password" id="eleven-api-key" placeholder="Pega aquí tu API key; se conserva si lo dejas vacío" spellcheck="false" type="password"/>
+<span class="field-hint" id="eleven-key-state">Obtén una clave en elevenlabs.io/app/settings/api-keys.</span>
+</div>
+<div class="voice-grid">
+<div class="field-stack">
+<label for="eleven-voice-id">Voz</label>
+<select id="eleven-voice-id"><option value="">Guarda tu API key y carga las voces</option></select>
+</div>
+<div class="field-stack">
+<label for="eleven-model">Modelo</label>
+<select id="eleven-model"><option value="eleven_multilingual_v2">Multilingual v2 · Español</option><option value="eleven_flash_v2_5">Flash v2.5 · Baja latencia</option><option value="eleven_turbo_v2_5">Turbo v2.5 · Rápido</option></select>
+</div>
+</div>
+<div class="button-row voice-actions">
+<button class="button button-secondary" id="load-voices" type="button">Cargar voces</button>
+<button class="button button-primary" id="save-voice" type="button">Guardar ajustes</button>
+<button class="button button-secondary" id="test-voice" type="button">Probar voz</button>
+</div>
+<div aria-live="polite" class="api-message" id="voice-message" role="status"></div>
+<div class="field-stack full-field">
+<label for="tts-template">Plantilla de lectura</label>
+<input id="tts-template" maxlength="250" type="text" value="{username} dice: {message}"/>
+<span class="field-hint">Variables disponibles: <code>{username}</code> y <code>{message}</code>.</span>
+</div>
+<div class="voice-grid">
+<div class="field-stack">
+<label for="tts-speed">Velocidad de voz <strong id="tts-speed-value">1.0×</strong></label>
+<input id="tts-speed" max="1.2" min="0.7" step="0.1" type="range" value="1"/>
+</div>
+<div class="field-stack">
+<label for="tts-max-chars">Máximo de caracteres del comentario</label>
+<input id="tts-max-chars" max="180" min="30" step="10" type="number" value="180"/>
+</div>
+</div>
+<div class="voice-toggles">
+<label class="check-label"><input checked="" id="tts-enabled" type="checkbox"/> Lector de voz activado</label>
+<label class="check-label"><input checked="" id="tts-antispam" type="checkbox"/> Filtrar repeticiones y spam</label>
+</div>
+<div class="obs-tts-box">
+<div><span class="tiny-label">FUENTE DE AUDIO PARA OBS</span><code id="tts-url">http://127.0.0.1:8787/tts</code></div>
+<button class="button button-secondary" id="copy-tts-url" type="button">Copiar URL</button>
+</div>
+<ol class="instruction-list">
+<li>En OBS, añade otra fuente <strong>Navegador</strong> con la URL de audio.</li>
+<li>Activa <strong>Controlar audio mediante OBS</strong> en las propiedades de esa fuente.</li>
+<li>Deja la fuente activa en la escena para que pueda reproducir las frases. La página no muestra contenido visible.</li>
+</ol>
+<p class="field-hint">Cada comentario leído consume cuota/caracteres de ElevenLabs. La cola de voz limita el atraso si llegan muchos mensajes seguidos.</p>
+</section>
+        </section>
+
+        <section class="page-view" id="page-obs" data-view="obs">
+          <div class="page-intro-card platform-intro obs-platform-intro"><div class="platform-large-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="m10 8 5 2.5-5 2.5zM8 21h8m-4-4v4"/></svg></div><div><p class="eyebrow">OUTPUT & BROADCAST</p><h3>OBS Studio</h3><p class="muted">Gestiona las direcciones de tus Browser Sources y sigue los pasos para añadir música y audio.</p></div></div>
+          <section class="panel obs-panel">
+<div class="section-heading">
+<div class="step-number">05</div>
+<div><h3>Usarlo en OBS Studio</h3><p class="muted">La fuente solo necesita una URL; no cargues el archivo HTML directamente.</p></div>
+</div>
+<div class="url-copy-row"><code id="overlay-url">http://127.0.0.1:8787/overlay</code><button class="button button-secondary" id="copy-overlay" type="button">Copiar URL</button></div>
+<div class="obs-settings">
+<div><span class="tiny-label">ANCHO</span><strong>520 px</strong></div>
+<div><span class="tiny-label">ALTO</span><strong>100 px</strong></div>
+<div><span class="tiny-label">FONDO</span><strong class="green-text">Transparente</strong></div>
+</div>
+<ol class="instruction-list">
+<li>En OBS, pulsa <strong>Fuentes → + → Navegador</strong>.</li>
+<li>Pega la URL de arriba y establece ancho <strong>520</strong>, alto <strong>100</strong>.</li>
+<li>Coloca la fuente donde quieras; el banner aparece al iniciar o cambiar la canción.</li>
+</ol>
+</section>
+        </section>
+
+        <section class="page-view" id="page-twitch" data-view="twitch">
+          <div class="page-intro-card platform-intro twitch-platform-intro"><div class="platform-large-icon"><svg viewBox="0 0 24 24"><path d="M5 3h16v12l-5 5h-4l-3 2v-2H5z"/><path d="M10 7v6m5-6v6"/></svg></div><div><p class="eyebrow">STREAMING PLATFORM</p><h3>Twitch</h3><p class="muted">Un espacio reservado para integrar chat, alertas y herramientas de Twitch en NoteLive Studio.</p></div></div>
+          <section class="panel coming-soon-panel"><div class="coming-soon-symbol">✦</div><div><span class="status-tag">EN PLANIFICACIÓN</span><h3>La próxima estación del estudio</h3><p class="muted">La navegación ya está preparada para Twitch, pero todavía no hay una conexión activa. Podemos integrar primero el chat y después las alertas, cuando definamos los permisos y el método de conexión.</p></div><button class="button button-secondary" type="button" data-go="spotify">Ver módulos disponibles</button></section>
+        </section>
+
+        <section class="page-view" id="page-appearance" data-view="appearance">
+          <div class="page-intro-card appearance-intro"><div class="appearance-orbit"><span>✦</span></div><div><p class="eyebrow">YOUR STUDIO / YOUR STYLE</p><h3>Personaliza tu universo</h3><p class="muted">Pon a tu personaje favorito de fondo y define cuánto se ve, cuánto se desenfoca y cómo se sienten los paneles.</p></div></div>
+          <div class="appearance-layout">
+            <section class="panel appearance-controls">
+              <div class="section-heading"><div class="section-icon">✦</div><div><h3>Fondo del estudio</h3><p class="muted">Elige una imagen de tu PC. Se ajusta y se guarda en esta instalación.</p></div></div>
+              <input id="wallpaper-file" class="visually-hidden" type="file" accept="image/png,image/jpeg,image/webp,image/avif">
+              <div class="wallpaper-picker" id="wallpaper-picker">
+                <div class="wallpaper-thumbnail" id="wallpaper-thumbnail"><span>NOTE<span class="green-text">LIVE</span></span><small>TU WALLPAPER</small></div>
+                <div class="wallpaper-picker-copy"><strong id="wallpaper-name">Sin fondo personalizado</strong><span class="muted">PNG, JPG o WebP · recomendamos 1920 × 1080</span><div class="button-row"><button class="button button-primary" type="button" id="choose-wallpaper">Elegir imagen</button><button class="button button-quiet" type="button" id="remove-wallpaper">Quitar fondo</button></div></div>
+              </div>
+              <div class="appearance-field">
+                <div class="appearance-label-row"><label for="wallpaper-blur-toggle">Desenfocar fondo</label><label class="switch"><input id="wallpaper-blur-toggle" type="checkbox" checked><span class="switch-track"></span></label></div>
+                <p class="field-hint">El desenfoque afecta al wallpaper, no al texto ni a los controles.</p>
+              </div>
+              <div class="appearance-field range-field"><div class="appearance-label-row"><label for="wallpaper-blur">Intensidad del desenfoque</label><strong id="wallpaper-blur-value">10 px</strong></div><input id="wallpaper-blur" type="range" min="0" max="24" step="1" value="10"><div class="range-ends"><span>Nítido</span><span>Muy borroso</span></div></div>
+              <div class="appearance-field range-field"><div class="appearance-label-row"><label for="wallpaper-dim">Oscurecer fondo</label><strong id="wallpaper-dim-value">45%</strong></div><input id="wallpaper-dim" type="range" min="0" max="85" step="5" value="45"><div class="range-ends"><span>Más visible</span><span>Más oscuro</span></div></div>
+              <div class="appearance-field range-field"><div class="appearance-label-row"><label for="panel-opacity">Opacidad de los paneles</label><strong id="panel-opacity-value">86%</strong></div><input id="panel-opacity" type="range" min="55" max="98" step="1" value="86"><div class="range-ends"><span>Más transparente</span><span>Más sólido</span></div></div>
+              <div class="appearance-field"><div class="appearance-label-row"><label for="wallpaper-position">Posición del fondo</label></div><select id="wallpaper-position"><option value="center">Centrado</option><option value="center top">Arriba</option><option value="center bottom">Abajo</option><option value="left center">Izquierda</option><option value="right center">Derecha</option></select></div>
+              <div class="appearance-field"><div class="appearance-label-row"><label for="accent-color">Color de acento</label><strong id="accent-color-value">#1ED760</strong></div><div class="color-picker-row"><input id="accent-color" type="color" value="#1ed760"><span class="muted">Botones, selección e indicadores</span></div></div>
+              <div class="appearance-actions"><button class="button button-secondary" id="reset-appearance" type="button">Restablecer</button><span id="appearance-save-state" class="save-state"><span class="pulse-dot"></span> Se guarda automáticamente</span></div>
+            </section>
+            <section class="preview-column">
+              <div class="panel live-preview-panel"><div class="preview-head"><div><span class="tiny-label">LIVE PREVIEW</span><h3>Tu espacio de trabajo</h3></div><span class="preview-dot"><i></i> PREVIEW</span></div><div class="wallpaper-preview-stage" id="wallpaper-preview-stage"><div class="preview-art-content"><span class="eyebrow">NOTE ORIGINALS</span><strong>Tu mundo.<br>Tu stream.</strong><span class="preview-caption">CUSTOM BACKGROUND</span></div><div class="preview-mini-card"><div class="preview-mini-cover">♪</div><div class="preview-mini-info"><strong>Nombre de canción</strong><span>Nombre del artista</span><i></i></div><span class="preview-mini-play">▶</span></div></div><p class="field-hint">Esta vista previa representa la estética de la aplicación. No cambia el fondo transparente de las Browser Sources de OBS.</p></div>
+              <div class="panel preset-panel"><div class="section-heading"><div class="section-icon">◈</div><div><h3>Paletas rápidas</h3><p class="muted">Un clic para cambiar el ambiente de color.</p></div></div><div class="palette-buttons"><button type="button" class="palette-swatch" data-palette="#1ed760"><i style="--swatch:#1ed760"></i><span>Neon Green</span></button><button type="button" class="palette-swatch" data-palette="#8b7bff"><i style="--swatch:#8b7bff"></i><span>Violet Dream</span></button><button type="button" class="palette-swatch" data-palette="#52c7ff"><i style="--swatch:#52c7ff"></i><span>Cyber Blue</span></button><button type="button" class="palette-swatch" data-palette="#ff6b9a"><i style="--swatch:#ff6b9a"></i><span>Pink Pulse</span></button></div></div>
+              <div class="tip-card"><span>✦</span><div><strong>Tip de diseño</strong><p>Para anime o ilustraciones, prueba el fondo con 8–14 px de desenfoque y 40–55% de oscuridad. Así el personaje se percibe sin competir con los controles.</p></div></div>
+            </section>
+          </div>
+        </section>
+
+        <footer><span>NOTELIVE STUDIO <i>·</i> PERSONALIZA TU UNIVERSO</span><span>Configuración local · Tu estilo, tus reglas</span></footer>
+      </div>
+    </div>
+
+    <aside class="right-rail" aria-label="Navegación principal">
+      <div class="rail-brand" title="NoteLive Studio"><span class="rail-note">N</span><span class="rail-brand-dot"></span></div>
+      <div class="rail-label">STUDIO</div>
+      <nav class="rail-nav">
+        <button class="rail-item active" type="button" data-view-target="home" title="Inicio"><span class="rail-icon"><svg viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg></span><span>Inicio</span></button>
+        <button class="rail-item" type="button" data-view-target="twitch" title="Twitch"><span class="rail-icon twitch-rail"><svg viewBox="0 0 24 24"><path d="M5 3h16v12l-5 5h-4l-3 2v-2H5z"/><path d="M10 7v6m5-6v6"/></svg></span><span>Twitch</span></button>
+        <button class="rail-item" type="button" data-view-target="spotify" title="Spotify"><span class="rail-icon spotify-rail"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M7 10c3.5-1 7.2-.5 10 1.2M8 13c2.8-.7 5.8-.3 8.2 1.2M9 16c2-.4 4-.1 5.8 1"/></svg></span><span>Spotify</span></button>
+        <button class="rail-item" type="button" data-view-target="tiktok" title="TikTok LIVE"><span class="rail-icon tiktok-rail"><svg viewBox="0 0 24 24"><path d="M14 4v10.2a4.2 4.2 0 1 1-3-4V7.4c1.1 1.9 2.6 3 5 3.3V7.6C14.4 7 14 5.9 14 4Z"/></svg></span><span>TikTok</span></button>
+        <button class="rail-item" type="button" data-view-target="voice" title="Voz de IA"><span class="rail-icon voice-rail"><svg viewBox="0 0 24 24"><path d="M3 10v4m4-8v12m4-15v18m4-12v6m4-9v12m3-8v4"/></svg></span><span>Voz IA</span></button>
+        <button class="rail-item" type="button" data-view-target="obs" title="OBS Studio"><span class="rail-icon obs-rail"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="m10 8 5 2.5-5 2.5zM8 21h8m-4-4v4"/></svg></span><span>OBS</span></button>
+      </nav>
+      <div class="rail-bottom"><div class="rail-label">LOOK & FEEL</div><button class="rail-item personalize-item" type="button" data-view-target="appearance" title="Personalizar"><span class="rail-icon"><svg viewBox="0 0 24 24"><path d="m14 6 4 4M4 20l5.5-1.4L20 8.1 15.9 4 5.4 14.5z"/><path d="M3 4h5M5.5 1.5v5M16 17h5M18.5 14.5v5"/></svg></span><span>Personalizar</span></button><div class="rail-version">NOTE<br><b>0.3</b></div></div>
+    </aside>
+  </main>
+  <script src="/app.js" defer></script>
+</body>
+</html>

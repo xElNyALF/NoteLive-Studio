@@ -1,0 +1,324 @@
+:root {
+  color-scheme: dark;
+  --green: #1ed760;
+  --green-soft: #79f5a0;
+  --white: #f6f8f6;
+  --muted: #a8b0aa;
+  --panel: rgba(10, 14, 11, .94);
+}
+
+* { box-sizing: border-box; }
+html, body {
+  width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden;
+  background: transparent !important;
+}
+body {
+  color: var(--white);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.stage {
+  position: relative; width: 100vw; height: 100vh; overflow: hidden;
+  padding: 10px; background: transparent;
+}
+
+/* El banner comienza como una pequeña cápsula junto al disco y se despliega. */
+.song-banner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 15px;
+  width: 82px;
+  max-width: calc(100vw - 20px);
+  min-height: 78px;
+  padding: 8px 10px 8px 10px;
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 14px;
+  background:
+    radial-gradient(ellipse at 4% 0%, rgba(30,215,96,.13), transparent 42%),
+    linear-gradient(112deg, rgba(22,30,24,.98), rgba(7,10,8,.97) 76%);
+  box-shadow: 0 18px 48px rgba(0,0,0,.34), 0 0 32px rgba(30,215,96,.065), inset 0 1px 0 rgba(255,255,255,.055);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(9px) scale(.96);
+  transform-origin: top left;
+  transition:
+    width .7s cubic-bezier(.18,.86,.25,1),
+    opacity .28s ease,
+    transform .5s cubic-bezier(.18,.88,.28,1.14),
+    visibility 0s linear .52s;
+  overflow: hidden;
+  isolation: isolate;
+}
+.song-banner.is-visible {
+  width: min(470px, calc(100vw - 20px));
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0) scale(1);
+  transition-delay: 0s;
+}
+.song-banner.is-leaving {
+  width: 82px;
+  opacity: 0;
+  transform: translateY(-5px) scale(.98);
+  transition-delay: 0s;
+}
+
+/* Brillo que recorre la tarjeta durante la apertura. */
+.song-banner::after {
+  content: "";
+  position: absolute;
+  z-index: 5;
+  top: -35%; bottom: -35%; left: -45%;
+  width: 24%;
+  opacity: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.11), transparent);
+  transform: skewX(-20deg);
+}
+.song-banner.is-visible.is-opening::after { animation: banner-sheen .92s .42s ease-out both; }
+.accent-line {
+  position: absolute; z-index: 6; top: 0; left: 22px;
+  width: 76px; height: 2px;
+  background: var(--green);
+  box-shadow: 0 0 18px rgba(30,215,96,.78);
+  border-radius: 0 0 10px 10px;
+  transform-origin: left center;
+}
+.song-banner.is-visible .accent-line { animation: accent-grow .6s .16s ease-out both; }
+
+/* La portada queda delante del vinilo, como si el disco saliera de su funda. */
+.cover-stack {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 60px;
+  width: 60px; height: 60px;
+}
+.vinyl-record {
+  position: absolute;
+  z-index: 0;
+  top: 50%; left: -8px;
+  width: 58px; height: 58px;
+  border-radius: 50%;
+  opacity: 0;
+  background:
+    radial-gradient(circle, #202521 0 8%, #090b0a 9% 13%, transparent 14%),
+    repeating-radial-gradient(circle, #111512 0 2px, #292e2a 3px 4px, #0c0f0d 5px 7px);
+  box-shadow: 0 5px 17px rgba(0,0,0,.58), inset 0 0 0 1px rgba(255,255,255,.12);
+  transform: translate(16px, -50%) rotate(-120deg) scale(.78);
+  will-change: transform, opacity;
+}
+.vinyl-record::before {
+  content: "";
+  position: absolute; inset: 7px;
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 50%;
+  box-shadow: 0 0 0 5px rgba(255,255,255,.018), 0 0 0 11px rgba(255,255,255,.02);
+}
+.vinyl-label {
+  position: absolute; top: 50%; left: 50%;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle at 35% 28%, #8df5aa 0, #1ed760 35%, #08752d 100%);
+  border: 3px solid #111713;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.13);
+}
+.vinyl-label::after {
+  content: ""; position: absolute; top: 50%; left: 50%;
+  width: 3px; height: 3px; border-radius: 50%;
+  transform: translate(-50%, -50%); background: #e6ffec;
+}
+.song-banner.is-visible:not(.is-spinning):not(.is-leaving) .vinyl-record {
+  animation: vinyl-reveal 1.08s cubic-bezier(.16,.84,.25,1) both;
+}
+.song-banner.is-visible.is-spinning .vinyl-record {
+  opacity: 1;
+  transform: translate(-8px, -50%) rotate(0deg) scale(1);
+  animation: vinyl-idle-spin 5.2s linear infinite;
+}
+.song-banner.is-leaving .vinyl-record { animation: vinyl-tuck .42s ease-in both; }
+.cover-wrap {
+  position: absolute; z-index: 2; inset: 0;
+  width: 60px; height: 60px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #1c5f35, #0b2113);
+  box-shadow: 0 6px 20px rgba(0,0,0,.36), 0 0 0 1px rgba(255,255,255,.06);
+  transform: translateX(6px) scale(.78) rotate(5deg);
+  opacity: 0;
+}
+.song-banner.is-visible .cover-wrap { animation: cover-pop .56s .1s cubic-bezier(.18,.88,.3,1.25) both; }
+.album-cover { display: block; width: 100%; height: 100%; object-fit: cover; }
+.cover-fallback {
+  position: absolute; inset: 0; place-items: center; display: grid;
+  color: var(--green); font-size: 29px;
+  background: linear-gradient(135deg, #174529, #09110c);
+}
+.cover-fallback[hidden] { display: none; }
+.cover-glow {
+  pointer-events: none; position: absolute; inset: 0;
+  border: 1px solid rgba(255,255,255,.12); border-radius: inherit;
+}
+
+.song-info {
+  position: relative;
+  z-index: 2;
+  min-width: 0;
+  flex: 1 1 320px;
+  max-width: 0;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateX(24px);
+}
+.song-banner.is-visible:not(.is-leaving) .song-info {
+  animation: info-reveal .62s .22s cubic-bezier(.18,.78,.25,1) both;
+}
+.song-banner.is-leaving .song-info { animation: info-hide .2s ease both; }
+.meta-row { display: flex; align-items: center; gap: 8px; min-width: 0; margin-bottom: 4px; }
+.song-banner.is-visible .meta-row { animation: detail-rise .35s .36s ease-out both; }
+.eyebrow-label { color: var(--green); font-size: 9px; font-weight: 850; letter-spacing: .16em; white-space: nowrap; }
+.brand-label { margin-left: auto; color: #758078; font-size: 8px; font-weight: 800; letter-spacing: .16em; }
+.playing-indicator { height: 12px; display: flex; align-items: center; gap: 2px; }
+.playing-indicator i {
+  width: 2px; height: 4px; display: block; border-radius: 3px;
+  background: var(--green); animation: equalize .85s ease-in-out infinite alternate;
+}
+.playing-indicator i:nth-child(2) { height: 10px; animation-delay: -.45s; }
+.playing-indicator i:nth-child(3) { height: 7px; animation-delay: -.2s; }
+.playing-indicator i:nth-child(4) { height: 5px; animation-delay: -.6s; }
+.song-banner.is-paused .playing-indicator i { animation-play-state: paused; height: 3px; }
+h1 {
+  margin: 0; font-size: clamp(12px, 1.8vw, 16px); line-height: 1.24;
+  font-weight: 800; letter-spacing: -.035em;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+.song-banner.is-visible h1 { animation: detail-rise .4s .4s ease-out both; }
+#song-artist {
+  margin: 3px 0 7px; color: var(--muted); font-size: 10px; line-height: 1.35;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.song-banner.is-visible #song-artist { animation: detail-rise .4s .48s ease-out both; }
+.progress-area { width: 100%; }
+.song-banner.is-visible .progress-area { animation: detail-rise .42s .55s ease-out both; }
+.progress-track { position: relative; width: 100%; height: 3px; border-radius: 10px; background: rgba(255,255,255,.13); overflow: visible; }
+.progress-fill {
+  position: relative; height: 100%; width: 0; border-radius: inherit;
+  background: linear-gradient(90deg, #14ba4c, #65f091);
+  box-shadow: 0 0 8px rgba(30,215,96,.32);
+  overflow: hidden;
+}
+.progress-fill::after {
+  content: ""; position: absolute; inset: 0 auto 0 -36px; width: 34px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.42), transparent);
+  animation: progress-glint 2.4s ease-in-out infinite;
+}
+.progress-dot {
+  position: absolute; top: 50%; left: 0; width: 5px; height: 5px;
+  border-radius: 50%; background: #d6ffe1;
+  box-shadow: 0 0 7px rgba(30,215,96,.7);
+  transform: translate(-50%, -50%);
+}
+.time-row { display: flex; justify-content: space-between; margin-top: 5px; color: #7f8981; font-size: 8px; font-variant-numeric: tabular-nums; }
+.play-state {
+  flex: 0 0 0; width: 0; height: 22px;
+  display: grid; place-items: center; border-radius: 50%;
+  background: rgba(30,215,96,.11); border: 1px solid rgba(30,215,96,.19);
+  opacity: 0; overflow: hidden;
+}
+.song-banner.is-visible:not(.is-leaving) .play-state { animation: action-pop .4s .57s cubic-bezier(.2,.8,.3,1.3) both; }
+.song-banner.is-leaving .play-state { animation: action-hide .18s ease both; }
+.play-state span {
+  display: block; width: 0; height: 0;
+  border-top: 5px solid transparent; border-bottom: 5px solid transparent;
+  border-left: 7px solid var(--green); margin-left: 2px;
+}
+.song-banner.is-paused .play-state span { width: 8px; height: 9px; margin: 0; border: 0; border-left: 3px solid var(--green); border-right: 3px solid var(--green); }
+.connection-warning {
+  position: absolute; top: 10px; left: 10px; padding: 9px 12px;
+  border-radius: 8px; color: #d8e4dc; font-size: 11px;
+  background: rgba(12,17,13,.92); border: 1px solid rgba(255,255,255,.12);
+}
+
+@keyframes vinyl-reveal {
+  0% { opacity: 0; transform: translate(16px, -50%) rotate(-120deg) scale(.78); }
+  22% { opacity: 1; }
+  72% { transform: translate(-11px, -50%) rotate(275deg) scale(1.03); }
+  100% { opacity: 1; transform: translate(-8px, -50%) rotate(360deg) scale(1); }
+}
+@keyframes vinyl-idle-spin {
+  from { transform: translate(-8px, -50%) rotate(0deg) scale(1); }
+  to { transform: translate(-8px, -50%) rotate(360deg) scale(1); }
+}
+@keyframes vinyl-tuck {
+  from { opacity: 1; transform: translate(-8px, -50%) rotate(0deg) scale(1); }
+  to { opacity: 0; transform: translate(16px, -50%) rotate(150deg) scale(.78); }
+}
+@keyframes cover-pop {
+  0% { opacity: 0; transform: translateX(6px) scale(.78) rotate(5deg); }
+  70% { opacity: 1; transform: translateX(-2px) scale(1.04) rotate(-1deg); }
+  100% { opacity: 1; transform: translateX(0) scale(1) rotate(0); }
+}
+@keyframes info-reveal {
+  from { max-width: 0; opacity: 0; transform: translateX(16px); }
+  to { max-width: 320px; opacity: 1; transform: translateX(0); }
+}
+@keyframes info-hide {
+  from { max-width: 320px; opacity: 1; transform: translateX(0); }
+  to { max-width: 0; opacity: 0; transform: translateX(12px); }
+}
+@keyframes detail-rise {
+  from { opacity: 0; transform: translateY(7px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes action-pop {
+  0% { flex-basis: 0; width: 0; opacity: 0; transform: scale(.5) rotate(-45deg); }
+  75% { flex-basis: 25px; width: 25px; opacity: 1; transform: scale(1.1) rotate(4deg); }
+  100% { flex-basis: 22px; width: 22px; opacity: 1; transform: scale(1) rotate(0); }
+}
+@keyframes action-hide {
+  to { flex-basis: 0; width: 0; opacity: 0; transform: scale(.6); }
+}
+@keyframes accent-grow { from { width: 20px; opacity: .45; } to { width: 78px; opacity: 1; } }
+@keyframes banner-sheen {
+  0% { left: -45%; opacity: 0; }
+  18% { opacity: .8; }
+  100% { left: 125%; opacity: 0; }
+}
+@keyframes progress-glint {
+  0%, 35% { transform: translateX(0); opacity: 0; }
+  48% { opacity: .75; }
+  70%, 100% { transform: translateX(560px); opacity: 0; }
+}
+@keyframes equalize { from { transform: scaleY(.55); opacity: .7; } to { transform: scaleY(1); opacity: 1; } }
+
+@media (max-width: 480px) {
+  .stage { padding: 8px; }
+  .song-banner { width: 76px; max-width: calc(100vw - 16px); gap: 8px; min-height: 72px; padding: 6px 8px; border-radius: 12px; }
+  .song-banner.is-visible { width: min(470px, calc(100vw - 16px)); }
+  .song-banner.is-leaving { width: 76px; }
+  .cover-stack { flex-basis: 54px; width: 54px; height: 54px; }
+  .cover-wrap { width: 54px; height: 54px; border-radius: 7px; }
+  .vinyl-record { width: 52px; height: 52px; left: -7px; }
+  .vinyl-label { width: 16px; height: 16px; }
+  .play-state { display: none; }
+  #song-artist { margin-bottom: 5px; }
+  .brand-label { display: none; }
+  .connection-warning { top: 8px; left: 8px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .song-banner, .song-banner.is-visible, .song-banner.is-leaving {
+    transition: opacity .2s ease, visibility 0s linear .2s, width .2s ease;
+    transform: none;
+  }
+  .song-banner.is-visible { width: min(470px, calc(100vw - 20px)); }
+  .song-info { max-width: 320px; opacity: 1; transform: none; animation: none !important; }
+  .cover-wrap { opacity: 1; transform: none; animation: none !important; }
+  .vinyl-record { opacity: .55; transform: translate(-8px, -50%); animation: none !important; }
+  .meta-row, h1, #song-artist, .progress-area { opacity: 1; transform: none; animation: none !important; }
+  .play-state { flex-basis: 22px; width: 22px; opacity: 1; animation: none !important; }
+  .playing-indicator i, .progress-fill::after { animation: none; }
+  .song-banner::after { display: none; }
+}

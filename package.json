@@ -1,0 +1,82 @@
+{
+  "name": "notelive-studio",
+  "productName": "NoteLive Studio",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Centro creativo personalizable para streaming: Spotify, TikTok LIVE, ElevenLabs y OBS.",
+  "main": "desktop/main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "start:web": "node server.js",
+    "dist": "electron-builder --win nsis",
+    "dist:portable": "electron-builder --win portable",
+    "pack": "electron-builder --dir",
+    "dist:publish": "electron-builder --win nsis --publish always"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "dependencies": {
+    "tiktok-live-connector": "2.5.0",
+    "electron-updater": "6.8.10"
+  },
+  "devDependencies": {
+    "electron": "44.8.0",
+    "electron-builder": "26.17.0"
+  },
+  "build": {
+    "appId": "com.itsnote.notelive-studio",
+    "productName": "NoteLive Studio",
+    "asar": false,
+    "directories": {
+      "output": "dist",
+      "buildResources": "assets"
+    },
+    "files": [
+      "desktop/**/*",
+      "public/**/*",
+      "server.js",
+      "package.json",
+      "README.md",
+      "update-config.json",
+      "THIRD_PARTY_NOTICES.md",
+      "!**/*.map",
+      "!**/{test,tests,__tests__,docs,doc,example,examples}/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/notelive.ico",
+      "artifactName": "NoteLive-Studio-Setup-${version}.${ext}",
+      "requestedExecutionLevel": "asInvoker"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "NoteLive Studio",
+      "uninstallDisplayName": "NoteLive Studio",
+      "deleteAppDataOnUninstall": false
+    },
+    "portable": {
+      "artifactName": "NoteLive-Studio-Portable-${version}.${ext}"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "xEINyALF",
+        "repo": "NoteLive-Studio",
+        "releaseType": "release"
+      }
+    ]
+  }
+}

@@ -1,0 +1,13 @@
+NOTELIVE STUDIO 0.3.0 + ACTUALIZACIONES
+
+IMPORTANTE: este ZIP es CODIGO FUENTE. Descomprime la carpeta notelive-studio en un lugar facil de encontrar.
+NO copies SUBIR-A-GITHUB.bat a C:\Program Files\NoteLive Studio ni a la carpeta elegida por el instalador.
+
+Para publicar el codigo, ejecuta SUBIR-A-GITHUB.bat desde esta carpeta, donde estan package.json y server.js.
+El script sube la version inicial v0.3.0; no publica v0.4.0.
+
+La instalacion previa de la 0.3.0 no incluia el actualizador. Despues de publicar, instala una vez el nuevo instalador de la Release 0.3.0. A partir de entonces, las actualizaciones futuras (0.3.1, 0.3.2, etc.) podran instalarse desde la propia aplicacion.
+
+
+PUBLICACION v0.3.0:
+Extrae el ZIP completo en una carpeta nueva y ejecuta SUBIR-A-GITHUB.bat desde ahi. No copies solamente el BAT a una carpeta de una version anterior o a la carpeta de instalacion.
