@@ -6,8 +6,12 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('noteLiveDesktop', Object.freeze({
   appName: 'NoteLive Studio',
   isDesktopApp: true,
-  version: '0.3.7',
+  version: '0.3.8',
   toggleFloatingOverlay: () => ipcRenderer.invoke('notelive:toggle-floating-overlay'),
   closeFloatingOverlay: () => ipcRenderer.send('notelive:close-floating-overlay'),
-  openTwitchLogin: () => ipcRenderer.invoke('notelive:open-twitch-login')
+  openTwitchLogin: () => ipcRenderer.invoke('notelive:open-twitch-login'),
+  checkForUpdates: () => ipcRenderer.invoke('notelive:check-for-updates'),
+  getUpdateStatus: () => ipcRenderer.invoke('notelive:get-update-status'),
+  restartAndInstallUpdate: () => ipcRenderer.invoke('notelive:restart-install-update'),
+  onUpdateStatus: callback => ipcRenderer.on('notelive:update-status', (_event, status) => callback(status))
 }));
