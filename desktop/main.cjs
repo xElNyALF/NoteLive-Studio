@@ -2,6 +2,7 @@
 
 const { app, BrowserWindow, dialog, shell, Menu, desktopCapturer, session, ipcMain, screen } = require('electron');
 const packageInfo = require('../package.json');
+const updateConfig = require('../update-config.json');
 const { autoUpdater } = require('electron-updater');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -198,13 +199,13 @@ if (!gotLock) {
 
 
   function updateRepositoryConfigured() {
-    const publish = packageInfo.build?.publish;
-    const targets = Array.isArray(publish) ? publish : (publish ? [publish] : []);
-    const github = targets.find(item => item?.provider === 'github');
-    return Boolean(github && github.owner && github.repo &&
-      github.owner !== 'YOUR_GITHUB_USERNAME' &&
-      !String(github.owner).includes('YOUR_') &&
-      !String(github.repo).includes('YOUR_'));
+    const provider = updateConfig && updateConfig.provider;
+    const owner = updateConfig && updateConfig.owner;
+    const repo = updateConfig && updateConfig.repo;
+    return Boolean(provider === 'github' &&
+      typeof owner === 'string' && owner.trim() &&
+      typeof repo === 'string' && repo.trim() &&
+      !owner.includes('YOUR_') && !repo.includes('YOUR_'));
   }
 
   function refreshMenu() {
@@ -225,7 +226,7 @@ if (!gotLock) {
       if (manual) dialog.showMessageBox(mainWindow, {
         type: 'warning', title: `${APP_NAME} · Actualizaciones sin configurar`,
         message: 'Falta enlazar el repositorio oficial de actualizaciones.',
-        detail: 'Configura build.publish.owner y build.publish.repo en package.json y publica una versión en GitHub Releases.'
+        detail: 'Comprueba update-config.json: debe incluir provider: github, owner: xElNyALF y repo: NoteLive-Studio.'
       });
       return;
     }
