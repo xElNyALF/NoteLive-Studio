@@ -483,19 +483,44 @@
           </section>
 
           <section class="panel twitch-alert-panel">
-            <div class="section-heading"><div class="step-number">02</div><div><h3>Alerta de nuevo seguidor</h3><p class="muted">Esta alerta es exclusiva de Twitch; no cambia ni reemplaza el overlay de Spotify.</p></div></div>
-            <div class="twitch-toggle-row"><label class="check-label"><input id="twitch-alert-enabled" type="checkbox" checked> Mostrar alertas reales de follow</label><label class="check-label"><input id="twitch-alert-sound" type="checkbox" checked> Sonido de alerta</label></div>
+            <div class="section-heading"><div class="step-number">02</div><div><h3>Alerta de nuevo seguidor</h3><p class="muted">Diseña el aviso de follow: elige un estilo, usa tu propia imagen/GIF y añade un sonido corto.</p></div></div>
+            <div class="twitch-toggle-row"><label class="check-label"><input id="twitch-alert-enabled" type="checkbox" checked> Mostrar alertas reales de follow</label><label class="check-label"><input id="twitch-alert-sound" type="checkbox" checked> Activar sonido</label></div>
             <div class="twitch-design-grid">
-              <div class="field-stack"><label for="twitch-alert-style">Estilo</label><select id="twitch-alert-style"><option value="card">Tarjeta glass</option><option value="neon">Neón</option><option value="minimal">Minimalista</option><option value="pixel">Pixel / retro</option></select></div>
-              <div class="field-stack"><label for="twitch-alert-color">Color principal</label><div class="color-picker-row"><input id="twitch-alert-color" type="color" value="#a970ff"><span class="muted">Bordes, icono y brillo</span></div></div>
-              <div class="field-stack"><label for="twitch-alert-duration">Duración <strong id="twitch-alert-duration-value">7 s</strong></label><input id="twitch-alert-duration" type="range" min="3" max="20" step="1" value="7"><span class="field-hint">Entre 3 y 20 segundos</span></div>
+              <div class="field-stack"><label for="twitch-alert-style">Estilo de alerta</label><select id="twitch-alert-style">
+                <option value="card">1 · Tarjeta glass</option><option value="neon">2 · Neón</option><option value="minimal">3 · Minimalista</option><option value="pixel">4 · Pixel / retro</option>
+                <option value="hologram">5 · Holograma</option><option value="sakura">6 · Sakura pastel</option><option value="glitch">7 · Cyber glitch</option><option value="arcade">8 · Arcade</option><option value="aurora">9 · Aurora</option><option value="comic">10 · Cómic</option>
+              </select></div>
+              <div class="field-stack"><label for="twitch-alert-color">Color principal</label><div class="color-picker-row"><input id="twitch-alert-color" type="color" value="#a970ff"><span class="muted">Bordes, iconos y brillo</span></div></div>
+              <div class="field-stack"><label for="twitch-alert-duration">Tiempo visible <strong id="twitch-alert-duration-value">7 s</strong></label><input id="twitch-alert-duration" type="range" min="3" max="20" step="1" value="7"><span class="field-hint">Durante cuánto aparece la alerta.</span></div>
               <div class="field-stack"><label for="twitch-alert-title">Título de la alerta</label><input id="twitch-alert-title" maxlength="64" value="¡Nuevo follow!"></div>
               <div class="field-stack twitch-full-field"><label for="twitch-alert-message">Mensaje de la alerta</label><input id="twitch-alert-message" maxlength="120" value="{username} ahora te sigue"><span class="field-hint">Usa <code>{username}</code> para insertar el nombre del seguidor.</span></div>
             </div>
+            <div class="twitch-alert-media-grid">
+              <section class="twitch-alert-media-card">
+                <div class="twitch-alert-media-heading"><div><h4>Imagen o GIF</h4><p>PNG, JPG, WebP, AVIF o GIF animado.</p></div><span class="media-limit-badge">10 MB máx.</span></div>
+                <div class="twitch-alert-image-preview" id="twitch-alert-image-preview"><span id="twitch-alert-image-empty">Tu imagen aparecerá aquí</span><img id="twitch-alert-image-preview-img" alt="Vista previa de la imagen de la alerta" hidden></div>
+                <div class="button-row twitch-alert-media-buttons">
+                  <input class="visually-hidden" id="twitch-alert-image-file" type="file" accept="image/png,image/jpeg,image/webp,image/avif,image/gif">
+                  <button class="button button-secondary" id="twitch-alert-image-choose" type="button">Elegir imagen/GIF</button><button class="button button-quiet" id="twitch-alert-image-remove" type="button" hidden>Quitar imagen</button>
+                </div>
+                <div class="field-stack"><label for="twitch-alert-image-fit">Cómo mostrarla</label><select id="twitch-alert-image-fit"><option value="contain">Ajuste automático (recomendado, sin recortar)</option><option value="cover">Recortar para llenar el marco</option></select></div>
+                <p class="field-hint">El GIF conserva su animación. “Recortar” solo cambia la vista, no modifica el archivo original.</p>
+              </section>
+              <section class="twitch-alert-media-card">
+                <div class="twitch-alert-media-heading"><div><h4>Sonido del follow</h4><p>Elige un efecto de sonido corto.</p></div><span class="media-limit-badge">5 MB · 10 s máx.</span></div>
+                <div class="twitch-alert-sound-status" id="twitch-alert-sound-status">Sonido integrado de NoteLive Studio</div>
+                <audio id="twitch-alert-sound-preview" class="twitch-alert-sound-preview" controls hidden></audio>
+                <div class="button-row twitch-alert-media-buttons">
+                  <input class="visually-hidden" id="twitch-alert-sound-file" type="file" accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/ogg,audio/mp4,audio/aac,audio/webm,audio/flac,.mp3,.wav,.ogg,.m4a,.aac,.webm,.flac">
+                  <button class="button button-secondary" id="twitch-alert-sound-choose" type="button">Elegir sonido</button><button class="button button-secondary" id="twitch-alert-sound-test" type="button">Probar sonido</button><button class="button button-quiet" id="twitch-alert-sound-remove" type="button" hidden>Quitar sonido</button>
+                </div>
+                <p class="field-hint">Los sonidos de más de 10 segundos o de más de 5 MB no se aceptan.</p>
+              </section>
+            </div>
+            <div class="api-message twitch-alert-media-message" id="twitch-alert-media-message" role="status" aria-live="polite"></div>
             <div class="button-row twitch-connect-actions"><button class="button button-primary" id="twitch-save-alerts" type="button">Guardar alerta</button><button class="button button-secondary" id="twitch-test-follow" type="button">Probar alerta</button><button class="button button-secondary" id="twitch-preview-alert" type="button">Abrir vista previa</button></div>
             <div class="twitch-url-card"><div><span class="tiny-label">FUENTE DE NAVEGADOR · ALERTAS</span><code id="twitch-alert-url">http://127.0.0.1:8787/twitch-overlay</code><small>OBS · recomendado: 600 × 260 px · fondo transparente</small></div><button class="button button-secondary" id="twitch-copy-alert-url" type="button">Copiar URL</button></div>
           </section>
-
           <section class="panel twitch-chat-panel">
             <div class="section-heading"><div class="step-number">03</div><div><h3>Chat de Twitch y voz de IA</h3><p class="muted">Revisa mensajes en NoteLive Studio, crea una fuente de chat para OBS y decide si ElevenLabs los leerá en voz alta.</p></div></div>
             <div class="twitch-toggle-row"><label class="check-label"><input id="twitch-chat-overlay-enabled" type="checkbox" checked> Mostrar chat en el overlay de OBS</label><label class="check-label"><input id="twitch-read-chat" type="checkbox" checked> Leer mensajes de Twitch con ElevenLabs</label></div>
@@ -576,7 +601,7 @@
         <button class="rail-item" type="button" data-view-target="voice" title="Voz de IA"><span class="rail-icon voice-rail"><svg viewBox="0 0 24 24"><path d="M3 10v4m4-8v12m4-15v18m4-12v6m4-9v12m3-8v4"/></svg></span><span>Voz IA</span></button>
         <button class="rail-item" type="button" data-view-target="obs" title="OBS Studio"><span class="rail-icon obs-rail"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="m10 8 5 2.5-5 2.5zM8 21h8m-4-4v4"/></svg></span><span>OBS</span></button>
       </nav>
-      <div class="rail-bottom"><div class="rail-label">LOOK & FEEL</div><button class="rail-item personalize-item" type="button" data-view-target="appearance" title="Personalizar"><span class="rail-icon"><svg viewBox="0 0 24 24"><path d="m14 6 4 4M4 20l5.5-1.4L20 8.1 15.9 4 5.4 14.5z"/><path d="M3 4h5M5.5 1.5v5M16 17h5M18.5 14.5v5"/></svg></span><span>Personalizar</span></button><div class="rail-version">NOTE<br><b>0.3.8</b></div></div>
+      <div class="rail-bottom"><div class="rail-label">LOOK & FEEL</div><button class="rail-item personalize-item" type="button" data-view-target="appearance" title="Personalizar"><span class="rail-icon"><svg viewBox="0 0 24 24"><path d="m14 6 4 4M4 20l5.5-1.4L20 8.1 15.9 4 5.4 14.5z"/><path d="M3 4h5M5.5 1.5v5M16 17h5M18.5 14.5v5"/></svg></span><span>Personalizar</span></button><div class="rail-version">NOTE<br><b>0.3.9</b></div></div>
     </aside>
   </main>
   <script src="/app.js" defer></script>
