@@ -103,23 +103,26 @@ function setPlatforms(platforms = {}) {
   }
 }
 
-const events = new EventSource('/api/chat/events');
-events.addEventListener('message', event => {
-  try {
-    const packet = JSON.parse(event.data);
-    if (packet.type === 'init') {
-      setPlatforms(packet.platforms || {});
-      renderHistory(packet.history || []);
-    } else if (packet.type === 'status') {
-      setPlatforms(packet.platforms || {});
-    } else if (packet.type === 'chat') {
-      addMessage(packet.message);
-    }
-  } catch {}
-});
-events.onerror = () => {};
+const previewMode = new URLSearchParams(window.location.search).get('preview') === '1';
+if (!previewMode) {
+  const events = new EventSource('/api/chat/events');
+  events.addEventListener('message', event => {
+    try {
+      const packet = JSON.parse(event.data);
+      if (packet.type === 'init') {
+        setPlatforms(packet.platforms || {});
+        renderHistory(packet.history || []);
+      } else if (packet.type === 'status') {
+        setPlatforms(packet.platforms || {});
+      } else if (packet.type === 'chat') {
+        addMessage(packet.message);
+      }
+    } catch {}
+  });
+  events.onerror = () => {};
+}
 
-if (new URLSearchParams(window.location.search).get('preview') === '1') {
+if (previewMode) {
   window.addEventListener('DOMContentLoaded', () => {
     if (!list.querySelector('.chat-message')) {
       addMessage({
