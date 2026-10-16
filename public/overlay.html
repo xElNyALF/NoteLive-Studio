@@ -36,6 +36,10 @@
       </div>
       <div id="play-state" class="play-state" aria-label="Estado de reproducción"><span></span></div>
     </article>
+    <section id="audio-visualizer-panel" class="audio-visualizer-panel" hidden aria-label="Visualizador de audio">
+      <canvas id="audio-visualizer-canvas" aria-hidden="true"></canvas>
+    </section>
+    <button id="floating-overlay-close" class="floating-overlay-close" type="button" aria-label="Cerrar mini overlay" hidden>×</button>
     <div id="connection-warning" class="connection-warning" hidden>Esperando conexión con Spotify…</div>
   </main>
   <script src="/overlay.js" defer></script>
