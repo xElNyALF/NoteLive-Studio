@@ -22,7 +22,8 @@ La configuración y las credenciales se guardan en la carpeta de datos de NoteLi
 
 ## Funciones
 
-- **v0.3.6:** chat general que reúne Twitch y TikTok LIVE, etiqueta cada mensaje con su plataforma, muestra los emotes de Twitch como imágenes y admite stickers de TikTok cuando el conector los entrega. Incluye una fuente de Navegador combinada para OBS en `http://127.0.0.1:8787/unified-chat-overlay` y filtros para ver todas las plataformas o solo una.\n- **v0.3.5:** integración de Twitch con OAuth, EventSub WebSocket para `channel.follow` y `channel.chat.message`, alerta de follow personalizable, overlay de chat separado para OBS y lectura opcional del chat mediante la fuente de ElevenLabs `/tts`. Requiere registrar una app de Twitch y añadir la URL de redirección `http://localhost:8787/twitch/callback`.
+- **v0.3.6:** chat general que reúne Twitch y TikTok LIVE, etiqueta cada mensaje con su plataforma, muestra los emotes de Twitch como imágenes y admite stickers de TikTok cuando el conector los entrega. Incluye una fuente de Navegador combinada para OBS en `http://127.0.0.1:8787/unified-chat-overlay` y filtros para ver todas las plataformas o solo una.
+- **v0.3.5:** integración de Twitch con OAuth, EventSub WebSocket para `channel.follow` y `channel.chat.message`, alerta de follow personalizable, overlay de chat separado para OBS y lectura opcional del chat mediante la fuente de ElevenLabs `/tts`. Requiere registrar una app de Twitch y añadir la URL de redirección `http://localhost:8787/twitch/callback`.
 
 
 - **v0.3.1:** editor de notificación musical (estilo, posición, duración, colores, opacidad y elementos visibles), visualizador FFT real del audio de Windows para OBS (barras, onda, espejo o círculo) y mini overlay de escritorio opcional. La captura se inicia manualmente; el audio no se graba y solo se envían niveles al servidor local.
