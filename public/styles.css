@@ -143,3 +143,49 @@ footer { max-width: 1320px; margin: 27px auto 0; padding: 15px 2px 4px; display:
   .music-design-footer, .music-footer-actions { width: 100%; }
   .music-footer-actions .button { flex: 1 1 auto; }
 }
+
+
+/* NoteLive Studio 0.3.4 — ten selectable notification looks */
+.music-presets-block { margin: 20px 0 24px; padding: 17px; border: 1px solid var(--stroke); border-radius: 16px; background: rgba(7,10,14,.28); }
+.music-presets-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.music-presets-heading .music-subheading { margin-bottom: 3px; }
+.music-presets-heading .field-hint { margin: 0; }
+.music-preset-count { flex: 0 0 auto; padding: 5px 8px; border: 1px solid var(--stroke); border-radius: 99px; color: var(--muted); font-size: 8px; font-weight: 850; letter-spacing: .12em; }
+.music-presets-grid { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 10px; }
+.music-preset-card { display: flex; min-width: 0; flex-direction: column; gap: 7px; padding: 8px; border: 1px solid var(--stroke); border-radius: 12px; background: rgba(255,255,255,.018); text-align: left; cursor: pointer; transition: border-color .18s ease, background .18s ease, transform .18s ease, box-shadow .18s ease; }
+.music-preset-card:hover { transform: translateY(-2px); border-color: rgba(var(--accent-rgb),.42); background: rgba(var(--accent-rgb),.04); }
+.music-preset-card.is-selected { border-color: var(--accent); background: rgba(var(--accent-rgb),.08); box-shadow: 0 0 0 1px rgba(var(--accent-rgb),.08), 0 6px 20px rgba(0,0,0,.12); }
+.music-preset-card strong { overflow: hidden; color: var(--text); font-size: 10px; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+.music-preset-card small { min-height: 25px; color: var(--muted); font-size: 9px; line-height: 1.35; }
+.preset-demo { position: relative; display: flex; align-items: center; gap: 6px; width: 100%; height: 50px; padding: 7px; overflow: hidden; border: 1px solid rgba(255,255,255,.14); border-radius: 8px; background: linear-gradient(120deg,#17201e,#080a0f); }
+.preset-cover { display: grid; place-items: center; flex: 0 0 27px; width: 27px; height: 27px; border-radius: 6px; color: #fff; background: linear-gradient(135deg,#476f58,#16241b); font-size: 12px; }
+.preset-demo-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 4px; }
+.preset-demo-copy i, .preset-demo-copy em { display: block; height: 3px; border-radius: 4px; background: rgba(255,255,255,.78); }
+.preset-demo-copy i:first-child { width: 83%; }
+.preset-demo-copy i:nth-child(2) { width: 55%; background: rgba(255,255,255,.28); }
+.preset-demo-copy em { width: 93%; height: 2px; margin-top: 2px; background: rgba(255,255,255,.14); }
+.preset-demo-bars { display: flex; align-items: center; gap: 2px; flex: 0 0 auto; height: 20px; }
+.preset-demo-bars b { display: block; width: 2px; height: 6px; border-radius: 2px; background: var(--demo-color,#1ed760); }
+.preset-demo-bars b:nth-child(2n) { height: 15px; }
+.preset-demo-bars b:nth-child(3n) { height: 10px; }
+.preset-demo-wave { flex: 0 0 30px; height: 12px; border-top: 2px solid var(--demo-color,#dba8ff); border-radius: 50%; transform: skewY(-16deg); }
+.preset-demo.demo-aesthetic { --demo-color: #b5a3ff; border-color: rgba(219,168,255,.45); border-radius: 13px; background: linear-gradient(110deg,#312441,#111322); }
+.preset-demo.demo-aesthetic .preset-cover { background: linear-gradient(135deg,#dba8ff,#736bc4); border-radius: 9px; }
+.preset-demo.demo-spectrum { --demo-color: #82f7e9; border-color: rgba(114,244,232,.5); background: linear-gradient(120deg,#0d2a2e,#091017); }
+.preset-demo.demo-mini { --demo-color: #f6f7ff; height: 43px; border-radius: 6px; background: linear-gradient(110deg,#282a32,#111219); }
+.preset-demo.demo-mini .preset-cover { flex-basis: 23px; width: 23px; height: 23px; }
+.preset-demo.demo-neon { --demo-color: #ff5bba; border-color: rgba(255,91,186,.56); background: linear-gradient(120deg,#3b0a2a,#100b1c); box-shadow: inset 0 0 12px rgba(255,53,174,.1); }
+.preset-demo.demo-neon .preset-cover { color: #ff8bce; background: #3c1030; }
+.preset-demo.demo-retro { --demo-color: #ffbe55; border-radius: 3px; background: linear-gradient(120deg,#33230e,#11100d); }
+.preset-demo.demo-retro .preset-cover { color: #ffca72; border-radius: 2px; background: #392a13; }
+.preset-demo.demo-orbit { --demo-color: #b89bff; background: radial-gradient(circle at 15% 50%,#4a3478,#131121 72%); }
+.preset-demo.demo-orbit .preset-cover { border-radius: 50%; background: linear-gradient(135deg,#b89bff,#3c286b); }
+.preset-demo-orbit { width: 20px; height: 20px; border: 2px dotted #c9b7ff; border-radius: 50%; }
+.preset-demo.demo-cyberpunk { --demo-color: #ff38a8; border-radius: 3px 10px; background: linear-gradient(120deg,#3b0b2d,#0b1b31); }
+.preset-demo.demo-cyberpunk .preset-cover { border-radius: 3px; background: linear-gradient(135deg,#ff38a8,#2b9cff); }
+.preset-demo.demo-mono { --demo-color: #f5f7ff; border-color: rgba(225,232,244,.3); background: linear-gradient(120deg,#292d35,#0b0e12); filter: saturate(.2); }
+.preset-demo.demo-always { --demo-color: #cbb6ff; border-color: rgba(189,160,255,.56); background: radial-gradient(circle at 15% 50%,#34264e,#0b0e18); box-shadow: 0 0 13px rgba(189,160,255,.12); }
+.preset-demo.demo-always .preset-cover { background: linear-gradient(135deg,#bda0ff,#4d397a); }
+.music-mode-grid { margin-top: 18px; }
+@media (max-width: 1120px) { .music-presets-grid { grid-template-columns: repeat(3,minmax(0,1fr)); } }
+@media (max-width: 690px) { .music-presets-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } .music-presets-block { padding: 12px; } }
