@@ -84,6 +84,11 @@ if (!gotLock) {
     if (floatingOverlayWindow && !floatingOverlayWindow.isDestroyed()) floatingOverlayWindow.close();
   });
 
+  ipcMain.handle('notelive:open-twitch-login', async () => {
+    await shell.openExternal(BASE_URL + '/twitch/connect');
+    return { opened: true };
+  });
+
   app.on('second-instance', () => {
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();

@@ -18,7 +18,9 @@ const DATA_DIR = path.resolve(process.env.NOTE_LIVE_DATA_DIR || ROOT);
 fs.mkdirSync(DATA_DIR, { recursive: true });
 const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
 const TOKENS_FILE = path.join(DATA_DIR, 'tokens.json');
+const TWITCH_TOKENS_FILE = path.join(DATA_DIR, 'twitch-tokens.json');
 const REDIRECT_URI = `http://${HOST}:${PORT}/callback`;
+const TWITCH_REDIRECT_URI = `http://localhost:${PORT}/twitch/callback`;
 const AUTHORIZE_URL = 'https://accounts.spotify.com/authorize';
 const TOKEN_URL = 'https://accounts.spotify.com/api/token';
 const CURRENTLY_PLAYING_URL = 'https://api.spotify.com/v1/me/player/currently-playing?additional_types=track,episode';
@@ -74,15 +76,82 @@ function normalizeOverlayConfig(value) {
   };
 }
 
+
+const DEFAULT_TWITCH_ALERT_CONFIG = Object.freeze({
+  enabled: true,
+  style: 'card',
+  durationSeconds: 7,
+  accentColor: '#a970ff',
+  title: '¡Nuevo follow!',
+  message: '{username} ahora te sigue',
+  soundEnabled: true
+});
+
+const DEFAULT_TWITCH_CHAT_CONFIG = Object.freeze({
+  enabled: true,
+  accentColor: '#a970ff',
+  backgroundOpacity: 82,
+  maxMessages: 6,
+  fontSize: 17,
+  showTimestamp: false,
+  compact: false
+});
+
+function normalizeTwitchAlertConfig(value) {
+  const input = value && typeof value === 'object' ? value : {};
+  const validHex = candidate => typeof candidate === 'string' && /^#[0-9a-fA-F]{6}$/.test(candidate);
+  return {
+    enabled: input.enabled !== false,
+    style: ['card', 'neon', 'minimal', 'pixel'].includes(input.style) ? input.style : DEFAULT_TWITCH_ALERT_CONFIG.style,
+    durationSeconds: Math.round(clampNumber(input.durationSeconds, 3, 20, DEFAULT_TWITCH_ALERT_CONFIG.durationSeconds)),
+    accentColor: validHex(input.accentColor) ? input.accentColor : DEFAULT_TWITCH_ALERT_CONFIG.accentColor,
+    title: cleanConfigText(input.title, 64, DEFAULT_TWITCH_ALERT_CONFIG.title),
+    message: cleanConfigText(input.message, 120, DEFAULT_TWITCH_ALERT_CONFIG.message).includes('{username}')
+      ? cleanConfigText(input.message, 120, DEFAULT_TWITCH_ALERT_CONFIG.message)
+      : DEFAULT_TWITCH_ALERT_CONFIG.message,
+    soundEnabled: input.soundEnabled !== false
+  };
+}
+
+function normalizeTwitchChatConfig(value) {
+  const input = value && typeof value === 'object' ? value : {};
+  const validHex = candidate => typeof candidate === 'string' && /^#[0-9a-fA-F]{6}$/.test(candidate);
+  return {
+    enabled: input.enabled !== false,
+    accentColor: validHex(input.accentColor) ? input.accentColor : DEFAULT_TWITCH_CHAT_CONFIG.accentColor,
+    backgroundOpacity: Math.round(clampNumber(input.backgroundOpacity, 20, 100, DEFAULT_TWITCH_CHAT_CONFIG.backgroundOpacity)),
+    maxMessages: Math.round(clampNumber(input.maxMessages, 2, 12, DEFAULT_TWITCH_CHAT_CONFIG.maxMessages)),
+    fontSize: Math.round(clampNumber(input.fontSize, 12, 24, DEFAULT_TWITCH_CHAT_CONFIG.fontSize)),
+    showTimestamp: input.showTimestamp === true,
+    compact: input.compact === true
+  };
+}
+
+function cleanConfigText(value, maxLength, fallback) {
+  const text = String(value ?? fallback).replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim();
+  return (text || fallback).slice(0, maxLength);
+}
+
 let config = loadConfig();
 let tokens = loadTokens();
+let twitchTokens = loadTwitchTokens();
 let pendingAuth = new Map();
+let pendingTwitchAuth = new Map();
+let twitchSocket = null;
+let twitchReconnectTimer = null;
+let twitchSocketGeneration = 0;
+let twitchShouldReconnect = true;
+let twitchSessionId = '';
+let recentTwitchChatMessages = [];
+let recentTwitchAlert = null;
+let twitchStatus = { connected: false, status: 'disconnected', username: twitchTokens?.username || '', broadcasterId: twitchTokens?.userId || '', error: '' };
 let pollTimer = null;
 let polling = false;
 let lastError = '';
 const sseClients = new Set();
 const tiktokSseClients = new Set();
 const overlaySseClients = new Set();
+const twitchSseClients = new Set();
 let audioVisualizerState = { active: false, levels: Array(32).fill(0), rms: 0, updatedAt: Date.now() };
 let tiktokConnection = null;
 let tiktokStatus = { connected: false, status: 'disconnected', username: config.tiktokUsername || '', error: '' };
@@ -107,6 +176,11 @@ function loadConfig() {
   return {
     clientId: typeof data.clientId === 'string' ? data.clientId.trim() : '',
     tiktokUsername: typeof data.tiktokUsername === 'string' ? data.tiktokUsername.trim().replace(/^@/, '') : '',
+    twitchClientId: typeof data.twitchClientId === 'string' ? data.twitchClientId.trim() : '',
+    twitchClientSecret: typeof data.twitchClientSecret === 'string' ? data.twitchClientSecret.trim() : '',
+    twitchReadChat: data.twitchReadChat !== false,
+    twitchAlert: normalizeTwitchAlertConfig(data.twitchAlert),
+    twitchChatOverlay: normalizeTwitchChatConfig(data.twitchChatOverlay),
     elevenLabsApiKey: typeof data.elevenLabsApiKey === 'string' ? data.elevenLabsApiKey.trim() : '',
     elevenLabsVoiceId: typeof data.elevenLabsVoiceId === 'string' ? data.elevenLabsVoiceId.trim() : '',
     elevenLabsModelId: typeof data.elevenLabsModelId === 'string' ? data.elevenLabsModelId : 'eleven_multilingual_v2',
@@ -125,6 +199,11 @@ function loadTokens() {
   } catch {
     return null;
   }
+}
+
+function loadTwitchTokens() {
+  try { return JSON.parse(fs.readFileSync(TWITCH_TOKENS_FILE, 'utf8')); }
+  catch { return null; }
 }
 
 function persistJson(filePath, value) {
@@ -190,6 +269,7 @@ function publicStatus() {
     playback: playbackState,
     overlay: config.overlay,
     audioVisualizerActive: audioVisualizerState.active,
+    twitch: { ...twitchStatus, clientId: config.twitchClientId || '', authorized: Boolean(twitchTokens && twitchTokens.refresh_token), hasClientId: Boolean(config.twitchClientId), hasClientSecret: Boolean(config.twitchClientSecret), redirectUri: TWITCH_REDIRECT_URI, readChat: config.twitchReadChat !== false, alertConfig: config.twitchAlert, chatConfig: config.twitchChatOverlay, alertUrl: `http://${HOST}:${PORT}/twitch-overlay`, chatOverlayUrl: `http://${HOST}:${PORT}/twitch-chat-overlay`, history: recentTwitchChatMessages.slice(0, 30), recentAlert: recentTwitchAlert },
     tiktok: { ...tiktokStatus, username: tiktokStatus.username || config.tiktokUsername || '' },
     chatHistory: recentChatMessages.slice(0, 30),
     voice: {
@@ -225,6 +305,13 @@ function publishOverlayEvent(packet) {
   const data = 'data: ' + JSON.stringify(packet) + '\n\n';
   for (const client of overlaySseClients) {
     try { client.write(data); } catch { overlaySseClients.delete(client); }
+  }
+}
+
+function publishTwitchEvent(packet) {
+  const data = 'data: ' + JSON.stringify(packet) + '\n\n';
+  for (const client of twitchSseClients) {
+    try { client.write(data); } catch { twitchSseClients.delete(client); }
   }
 }
 
@@ -514,6 +601,296 @@ function serveAsset(res, assetName, contentType) {
   });
 }
 
+
+function updateTwitchStatus(next) {
+  twitchStatus = { ...twitchStatus, ...next };
+  publishTwitchEvent({ type: 'status', status: publicStatus().twitch });
+}
+
+function twitchApiHeaders(accessToken) {
+  return {
+    'Client-Id': config.twitchClientId,
+    'Authorization': 'Bearer ' + accessToken,
+    'Content-Type': 'application/json'
+  };
+}
+
+async function refreshTwitchAccessToken() {
+  if (!config.twitchClientId || !config.twitchClientSecret || !twitchTokens || !twitchTokens.refresh_token) {
+    throw new Error('Vuelve a conectar Twitch para renovar el permiso.');
+  }
+  const response = await fetch('https://id.twitch.tv/oauth2/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: config.twitchClientId,
+      client_secret: config.twitchClientSecret,
+      grant_type: 'refresh_token',
+      refresh_token: twitchTokens.refresh_token
+    })
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok || !body.access_token) {
+    throw new Error('Twitch ya no acepta la sesión guardada. Desconecta y vuelve a conectar la cuenta.');
+  }
+  twitchTokens = {
+    ...twitchTokens,
+    ...body,
+    userId: twitchTokens.userId,
+    username: twitchTokens.username,
+    clientId: config.twitchClientId,
+    expires_at: Date.now() + Number(body.expires_in || 14400) * 1000
+  };
+  persistJson(TWITCH_TOKENS_FILE, twitchTokens);
+  return twitchTokens.access_token;
+}
+
+async function getValidTwitchAccessToken() {
+  if (!twitchTokens || !twitchTokens.access_token) throw new Error('Conecta tu cuenta de Twitch primero.');
+  if (Number(twitchTokens.expires_at || 0) < Date.now() + 60000) return refreshTwitchAccessToken();
+  const response = await fetch('https://id.twitch.tv/oauth2/validate', {
+    headers: { Authorization: 'Bearer ' + twitchTokens.access_token }
+  });
+  const body = await response.json().catch(() => ({}));
+  if (response.ok && body.client_id === config.twitchClientId) return twitchTokens.access_token;
+  return refreshTwitchAccessToken();
+}
+
+async function getTwitchCurrentUser(accessToken) {
+  const response = await fetch('https://api.twitch.tv/helix/users', {
+    headers: twitchApiHeaders(accessToken)
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok || !body.data || !body.data[0]) {
+    throw new Error('No se pudo leer la cuenta de Twitch autorizada. Comprueba las credenciales de la aplicación.');
+  }
+  return body.data[0];
+}
+
+async function createTwitchEventSubscription(sessionId, type, version, condition, accessToken) {
+  const response = await fetch('https://api.twitch.tv/helix/eventsub/subscriptions', {
+    method: 'POST',
+    headers: twitchApiHeaders(accessToken),
+    body: JSON.stringify({
+      type,
+      version,
+      condition,
+      transport: { method: 'websocket', session_id: sessionId }
+    })
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(type + ': ' + (body.message || body.error || ('HTTP ' + response.status)));
+  return body.data && body.data[0] || null;
+}
+
+function makeTwitchFollowAlert(username, test) {
+  const safeName = cleanText(username || 'Un nuevo seguidor', 64);
+  const title = cleanConfigText(config.twitchAlert.title, 64, DEFAULT_TWITCH_ALERT_CONFIG.title);
+  const template = cleanConfigText(config.twitchAlert.message, 120, DEFAULT_TWITCH_ALERT_CONFIG.message);
+  return {
+    id: crypto.randomUUID(),
+    username: safeName,
+    title,
+    message: template.replaceAll('{username}', safeName),
+    style: config.twitchAlert.style,
+    accentColor: config.twitchAlert.accentColor,
+    durationSeconds: config.twitchAlert.durationSeconds,
+    soundEnabled: config.twitchAlert.soundEnabled,
+    timestamp: Date.now(),
+    test: Boolean(test)
+  };
+}
+
+function handleTwitchFollow(event, test = false) {
+  if (!config.twitchAlert.enabled && !test) return;
+  const alert = makeTwitchFollowAlert(event && (event.user_name || event.user_login) || 'Nuevo seguidor', test);
+  recentTwitchAlert = alert;
+  publishTwitchEvent({ type: 'follow', alert });
+}
+
+function handleTwitchChat(event) {
+  const username = cleanText(event && (event.chatter_user_name || event.chatter_user_login) || 'Usuario', 64) || 'Usuario';
+  const comment = cleanText(event && event.message && event.message.text || '', Math.max(30, Math.min(180, Number(config.ttsMaxChars) || 180)));
+  if (!comment) return;
+  const shouldSpeak = Boolean(
+    config.twitchReadChat !== false &&
+    config.ttsEnabled !== false &&
+    config.elevenLabsApiKey &&
+    config.elevenLabsVoiceId &&
+    allowVoiceForChat(username, comment)
+  );
+  const badges = Array.isArray(event && event.badges) ? event.badges : [];
+  const item = {
+    id: event && event.message_id || crypto.randomUUID(),
+    username,
+    comment,
+    timestamp: Date.now(),
+    speakText: shouldSpeak ? formatVoiceText(username, comment) : '',
+    shouldSpeak,
+    platform: 'twitch',
+    isModerator: badges.some(badge => badge.set_id === 'moderator'),
+    isSubscriber: badges.some(badge => badge.set_id === 'subscriber'),
+    isVip: badges.some(badge => badge.set_id === 'vip')
+  };
+  recentTwitchChatMessages.unshift(item);
+  recentTwitchChatMessages = recentTwitchChatMessages.slice(0, 50);
+  publishTwitchEvent({ type: 'chat', message: item });
+}
+
+async function connectTwitchWebSocket(url = 'wss://eventsub.wss.twitch.tv/ws', isReconnect = false) {
+  if (typeof WebSocket !== 'function') {
+    throw new Error('Este entorno no dispone de WebSocket nativo para EventSub. Actualiza NoteLive Studio.');
+  }
+  twitchShouldReconnect = true;
+  const accessToken = await getValidTwitchAccessToken();
+  const userId = twitchTokens.userId;
+  if (!userId) throw new Error('No se encontró el ID de la cuenta de Twitch. Desconecta y vuelve a autorizar.');
+  const previousSocket = twitchSocket;
+  const generation = ++twitchSocketGeneration;
+  const socket = new WebSocket(url);
+  twitchSocket = socket;
+  updateTwitchStatus({ connected: false, status: 'connecting', username: twitchTokens.username, broadcasterId: userId, error: '' });
+
+  socket.addEventListener('message', async messageEvent => {
+    let packet;
+    try { packet = JSON.parse(String(messageEvent.data)); } catch { return; }
+    const messageType = packet && packet.metadata && packet.metadata.message_type;
+    const payload = packet && packet.payload || {};
+
+    if (messageType === 'session_welcome') {
+      if (generation !== twitchSocketGeneration) return;
+      twitchSessionId = payload.session && payload.session.id || '';
+      if (isReconnect) {
+        if (previousSocket && previousSocket !== socket) {
+          try { previousSocket.close(1000, 'EventSub reconnected'); } catch {}
+        }
+        updateTwitchStatus({ connected: true, status: 'connected', username: twitchTokens.username, broadcasterId: userId, error: '' });
+        return;
+      }
+      const results = await Promise.allSettled([
+        createTwitchEventSubscription(twitchSessionId, 'channel.follow', '2', {
+          broadcaster_user_id: userId,
+          moderator_user_id: userId
+        }, accessToken),
+        createTwitchEventSubscription(twitchSessionId, 'channel.chat.message', '1', {
+          broadcaster_user_id: userId,
+          user_id: userId
+        }, accessToken)
+      ]);
+      const failures = results.filter(result => result.status === 'rejected').map(result => result.reason && result.reason.message || 'Error de suscripción');
+      const successCount = results.length - failures.length;
+      updateTwitchStatus({
+        connected: successCount > 0,
+        status: successCount > 0 ? 'connected' : 'error',
+        username: twitchTokens.username,
+        broadcasterId: userId,
+        error: failures.length ? 'Conexión parcial: ' + failures.join(' · ') : ''
+      });
+      return;
+    }
+
+    if (messageType === 'session_reconnect') {
+      const reconnectUrl = payload.session && payload.session.reconnect_url;
+      if (reconnectUrl && generation === twitchSocketGeneration) {
+        connectTwitchWebSocket(reconnectUrl, true).catch(error => {
+          updateTwitchStatus({ connected: false, status: 'error', error: cleanText(error.message, 220) });
+        });
+      }
+      return;
+    }
+
+    if (messageType === 'notification') {
+      const eventType = payload.subscription && payload.subscription.type;
+      const event = payload.event || {};
+      if (eventType === 'channel.follow') handleTwitchFollow(event, false);
+      else if (eventType === 'channel.chat.message') handleTwitchChat(event);
+      return;
+    }
+
+    if (messageType === 'revocation') {
+      updateTwitchStatus({
+        connected: false,
+        status: 'error',
+        error: 'Twitch revocó una suscripción: ' + ((payload.subscription && payload.subscription.type) || 'desconocida') + '. Vuelve a conectar la cuenta.'
+      });
+    }
+  });
+
+  socket.addEventListener('error', () => {
+    if (generation === twitchSocketGeneration) {
+      updateTwitchStatus({ connected: false, status: 'connecting', error: 'No se pudo mantener la conexión con Twitch EventSub.' });
+    }
+  });
+
+  socket.addEventListener('close', () => {
+    if (generation !== twitchSocketGeneration) return;
+    twitchSocket = null;
+    twitchSessionId = '';
+    if (!twitchShouldReconnect) return;
+    updateTwitchStatus({ connected: false, status: 'reconnecting', error: 'Se perdió la conexión con Twitch. Reconectando…' });
+    clearTimeout(twitchReconnectTimer);
+    twitchReconnectTimer = setTimeout(() => {
+      connectTwitchWebSocket().catch(error => {
+        updateTwitchStatus({ connected: false, status: 'error', error: cleanText(error.message, 240) });
+      });
+    }, 4000);
+  });
+}
+
+async function startTwitchEventSub() {
+  if (!twitchTokens || !twitchTokens.refresh_token || !config.twitchClientId || !config.twitchClientSecret) {
+    updateTwitchStatus({ connected: false, status: 'disconnected', error: '' });
+    return;
+  }
+  twitchShouldReconnect = true;
+  if (twitchReconnectTimer) clearTimeout(twitchReconnectTimer);
+  updateTwitchStatus({ connected: false, status: 'connecting', username: twitchTokens.username || '', error: '' });
+  await connectTwitchWebSocket();
+}
+
+async function disconnectTwitch(clearTokens = true) {
+  twitchShouldReconnect = false;
+  clearTimeout(twitchReconnectTimer);
+  twitchReconnectTimer = null;
+  twitchSocketGeneration += 1;
+  const oldSocket = twitchSocket;
+  twitchSocket = null;
+  twitchSessionId = '';
+  if (oldSocket) {
+    try { oldSocket.close(1000, 'Disconnected by NoteLive Studio'); } catch {}
+  }
+  if (clearTokens) {
+    const token = twitchTokens && twitchTokens.access_token;
+    if (token && config.twitchClientId) {
+      try {
+        await fetch('https://id.twitch.tv/oauth2/revoke', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ client_id: config.twitchClientId, token })
+        });
+      } catch {}
+    }
+    twitchTokens = null;
+    try { fs.unlinkSync(TWITCH_TOKENS_FILE); } catch {}
+  }
+  updateTwitchStatus({ connected: false, status: 'disconnected', username: '', broadcasterId: '', error: '' });
+}
+
+function twitchCallbackPage(title, message, success = false) {
+  const color = success ? '#a970ff' : '#ff7587';
+  const escapeHtml = value => String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const safeTitle = escapeHtml(title || 'NoteLive Studio · Twitch');
+  const safeMessage = escapeHtml(message || '');
+  return '<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width">' +
+    '<title>' + safeTitle + '</title><body style="margin:0;background:#0b0d12;color:#f7f4ff;font:16px system-ui;display:grid;min-height:100vh;place-items:center">' +
+    '<main style="max-width:560px;padding:32px;border:1px solid #373143;border-radius:18px;background:#15151d">' +
+    '<div style="color:' + color + ';font-size:13px;font-weight:800;letter-spacing:.14em">NOTELIVE STUDIO / TWITCH</div>' +
+    '<h1 style="font-size:26px;margin-bottom:8px">' + safeTitle + '</h1><p style="color:#bbb5c8;line-height:1.65">' + safeMessage + '</p>' +
+    '<p style="color:#8d8797;font-size:13px">Puedes cerrar esta ventana y volver a NoteLive Studio.</p>' +
+    '<button onclick="window.close()" style="margin-top:10px;padding:10px 16px;border:0;border-radius:10px;background:' + color + ';color:#0d0915;font-weight:800;cursor:pointer">Cerrar ventana</button></main></body></html>';
+}
+
+
 const server = http.createServer(async (req, res) => {
   const requestUrl = new URL(req.url, `http://${HOST}:${PORT}`);
   const pathname = requestUrl.pathname;
@@ -521,6 +898,175 @@ const server = http.createServer(async (req, res) => {
   // No se admiten peticiones desde otros sitios para los endpoints que modifican datos.
   if (['POST'].includes(req.method) && pathname.startsWith('/api/') && !isLocalOrigin(req)) {
     return sendText(res, 403, 'Origen no permitido.');
+  }
+
+
+  if (req.method === 'GET' && pathname === '/twitch-overlay') {
+    return serveAsset(res, 'twitch-overlay.html', 'text/html; charset=utf-8');
+  }
+  if (req.method === 'GET' && pathname === '/twitch-overlay.js') {
+    return serveAsset(res, 'twitch-overlay.js', 'text/javascript; charset=utf-8');
+  }
+  if (req.method === 'GET' && pathname === '/twitch-overlay.css') {
+    return serveAsset(res, 'twitch-overlay.css', 'text/css; charset=utf-8');
+  }
+  if (req.method === 'GET' && pathname === '/twitch-chat-overlay') {
+    return serveAsset(res, 'twitch-chat-overlay.html', 'text/html; charset=utf-8');
+  }
+  if (req.method === 'GET' && pathname === '/twitch-chat-overlay.js') {
+    return serveAsset(res, 'twitch-chat-overlay.js', 'text/javascript; charset=utf-8');
+  }
+  if (req.method === 'GET' && pathname === '/twitch-chat-overlay.css') {
+    return serveAsset(res, 'twitch-chat-overlay.css', 'text/css; charset=utf-8');
+  }
+
+  if (req.method === 'GET' && pathname === '/twitch/connect') {
+    if (!config.twitchClientId || !config.twitchClientSecret) {
+      return sendText(res, 400, 'Abre NoteLive Studio, guarda primero el Twitch Client ID y Client Secret y vuelve a pulsar Conectar Twitch.');
+    }
+    const state = crypto.randomBytes(24).toString('hex');
+    pendingTwitchAuth.set(state, { createdAt: Date.now() });
+    for (const [key, value] of pendingTwitchAuth) {
+      if (Date.now() - value.createdAt > 10 * 60 * 1000) pendingTwitchAuth.delete(key);
+    }
+    const authorize = new URL('https://id.twitch.tv/oauth2/authorize');
+    authorize.search = new URLSearchParams({
+      client_id: config.twitchClientId,
+      redirect_uri: TWITCH_REDIRECT_URI,
+      response_type: 'code',
+      scope: 'moderator:read:followers user:read:chat',
+      state,
+      force_verify: 'true'
+    }).toString();
+    res.writeHead(302, { Location: authorize.toString(), 'Cache-Control': 'no-store' });
+    return res.end();
+  }
+
+  if (req.method === 'GET' && pathname === '/twitch/callback') {
+    const oauthError = requestUrl.searchParams.get('error');
+    const code = requestUrl.searchParams.get('code');
+    const state = requestUrl.searchParams.get('state');
+    const pending = pendingTwitchAuth.get(state);
+    if (state) pendingTwitchAuth.delete(state);
+    if (oauthError) {
+      res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+      return res.end(twitchCallbackPage('Autorización cancelada', 'Twitch no autorizó la conexión. Regresa a NoteLive Studio y vuelve a intentarlo.'));
+    }
+    if (!pending || !code || Date.now() - pending.createdAt > 10 * 60 * 1000) {
+      res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+      return res.end(twitchCallbackPage('No se pudo validar el inicio de sesión', 'El código de autorización venció o el estado no coincide. Vuelve a NoteLive Studio e intenta conectar otra vez.'));
+    }
+    try {
+      const tokenResponse = await fetch('https://id.twitch.tv/oauth2/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id: config.twitchClientId,
+          client_secret: config.twitchClientSecret,
+          code,
+          grant_type: 'authorization_code',
+          redirect_uri: TWITCH_REDIRECT_URI
+        })
+      });
+      const tokenBody = await tokenResponse.json().catch(() => ({}));
+      if (!tokenResponse.ok || !tokenBody.access_token || !tokenBody.refresh_token) {
+        throw new Error(tokenBody.message || 'Twitch no aceptó el intercambio del código de autorización.');
+      }
+      const user = await getTwitchCurrentUser(tokenBody.access_token);
+      twitchTokens = {
+        ...tokenBody,
+        userId: user.id,
+        username: user.display_name || user.login,
+        login: user.login,
+        clientId: config.twitchClientId,
+        expires_at: Date.now() + Number(tokenBody.expires_in || 14400) * 1000
+      };
+      persistJson(TWITCH_TOKENS_FILE, twitchTokens);
+      updateTwitchStatus({ connected: false, status: 'connecting', username: twitchTokens.username, broadcasterId: user.id, error: '' });
+      startTwitchEventSub().catch(error => {
+        updateTwitchStatus({ connected: false, status: 'error', username: twitchTokens && twitchTokens.username || '', error: cleanText(error.message, 240) });
+      });
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' });
+      return res.end(twitchCallbackPage('¡Twitch conectado!', 'La autorización se guardó localmente para ' + (user.display_name || user.login) + '. NoteLive Studio está activando el chat y las alertas de seguimiento.', true));
+    } catch (error) {
+      console.error('[NoteLive Studio] Twitch OAuth:', error);
+      res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+      return res.end(twitchCallbackPage('No se pudo conectar Twitch', cleanText(error.message || error, 220)));
+    }
+  }
+
+  if (req.method === 'POST' && pathname === '/api/twitch/config') {
+    try {
+      const body = await readRequestJson(req);
+      const oldClientId = config.twitchClientId;
+      const oldClientSecret = config.twitchClientSecret;
+      const enteredClientId = typeof body.clientId === 'string' ? body.clientId.trim() : '';
+      const enteredClientSecret = typeof body.clientSecret === 'string' ? body.clientSecret.trim() : '';
+      if (enteredClientId && (enteredClientId.length < 8 || enteredClientId.length > 128)) {
+        return sendJson(res, 400, { error: 'El Client ID de Twitch no tiene un formato válido.' });
+      }
+      if (enteredClientSecret && (enteredClientSecret.length < 8 || enteredClientSecret.length > 256)) {
+        return sendJson(res, 400, { error: 'El Client Secret parece incompleto.' });
+      }
+      const nextClientId = body.clearCredentials === true ? '' : (enteredClientId || oldClientId);
+      const nextClientSecret = body.clearCredentials === true ? '' : (enteredClientSecret || oldClientSecret);
+      const credentialsChanged = nextClientId !== oldClientId || nextClientSecret !== oldClientSecret;
+      if (credentialsChanged && twitchTokens) await disconnectTwitch(true);
+      config.twitchClientId = nextClientId;
+      config.twitchClientSecret = nextClientSecret;
+      if (typeof body.readChat === 'boolean') config.twitchReadChat = body.readChat;
+      if (body.alertConfig && typeof body.alertConfig === 'object') config.twitchAlert = normalizeTwitchAlertConfig(body.alertConfig);
+      if (body.chatConfig && typeof body.chatConfig === 'object') config.twitchChatOverlay = normalizeTwitchChatConfig(body.chatConfig);
+      persistJson(CONFIG_FILE, config);
+      const current = publicStatus().twitch;
+      publishTwitchEvent({ type: 'config', status: current, alertConfig: config.twitchAlert, chatConfig: config.twitchChatOverlay, readChat: config.twitchReadChat, voice: publicStatus().voice });
+      return sendJson(res, 200, { ok: true, twitch: current });
+    } catch (error) {
+      return sendJson(res, 400, { error: error.message || 'No se pudo guardar la configuración de Twitch.' });
+    }
+  }
+
+  if (req.method === 'POST' && pathname === '/api/twitch/disconnect') {
+    await disconnectTwitch(true);
+    return sendJson(res, 200, { ok: true, twitch: publicStatus().twitch });
+  }
+
+  if (req.method === 'POST' && pathname === '/api/twitch/test-follow') {
+    try {
+      const body = await readRequestJson(req);
+      handleTwitchFollow({ user_name: cleanText(body.username || 'NoukanTest', 64) || 'NoukanTest' }, true);
+      return sendJson(res, 200, { ok: true });
+    } catch (error) {
+      return sendJson(res, 400, { error: error.message || 'No se pudo probar la alerta.' });
+    }
+  }
+
+  if (req.method === 'GET' && pathname === '/api/twitch/events') {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no'
+    });
+    res.write('data: ' + JSON.stringify({
+      type: 'init',
+      status: publicStatus().twitch,
+      history: recentTwitchChatMessages.slice(0, 30),
+      recentAlert: recentTwitchAlert,
+      alertConfig: config.twitchAlert,
+      chatConfig: config.twitchChatOverlay,
+      readChat: config.twitchReadChat !== false,
+      voice: publicStatus().voice
+    }) + '\n\n');
+    twitchSseClients.add(res);
+    const heartbeat = setInterval(() => {
+      try { res.write(': keep-alive\n\n'); } catch { clearInterval(heartbeat); }
+    }, 25000);
+    req.on('close', () => {
+      clearInterval(heartbeat);
+      twitchSseClients.delete(res);
+    });
+    return;
   }
 
   if (req.method === 'GET' && pathname === '/') {
@@ -639,6 +1185,7 @@ const server = http.createServer(async (req, res) => {
       persistJson(CONFIG_FILE, config);
       const voice = publicStatus().voice;
       publishTikTokEvent({ type: 'voice-config', voice });
+      publishTwitchEvent({ type: 'voice-config', voice });
       return sendJson(res, 200, { ok: true, voice });
     } catch (error) {
       return sendJson(res, 400, { error: error.message || 'No se pudo guardar la configuración de voz.' });
@@ -897,6 +1444,9 @@ function startServer() {
       console.log(`Overlay: ${`http://${HOST}:${PORT}/overlay`}`);
       console.log(`Redirect URI de Spotify: ${REDIRECT_URI}\n`);
       schedulePoll(0);
+      if (twitchTokens && config.twitchClientId && config.twitchClientSecret) {
+        startTwitchEventSub().catch(error => updateTwitchStatus({ connected: false, status: 'error', error: cleanText(error.message, 240) }));
+      }
       resolve(server);
     };
     server.once('error', onError);
@@ -911,6 +1461,7 @@ async function stopServer() {
     pollTimer = null;
   }
   try { await disconnectTikTok(false); } catch {}
+  try { await disconnectTwitch(false); } catch {}
   for (const client of sseClients) {
     try { client.end(); } catch {}
   }
@@ -919,6 +1470,10 @@ async function stopServer() {
     try { client.end(); } catch {}
   }
   tiktokSseClients.clear();
+  for (const client of twitchSseClients) {
+    try { client.end(); } catch {}
+  }
+  twitchSseClients.clear();
   if (server.listening) {
     await new Promise(resolve => server.close(() => resolve()));
   }

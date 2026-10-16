@@ -1,6 +1,7 @@
 # Local credentials and user-specific configuration: NEVER publish these
 config.json
 tokens.json
+twitch-tokens.json
 .env
 .env.*
 !.env.example

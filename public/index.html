@@ -351,8 +351,60 @@
         </section>
 
         <section class="page-view" id="page-twitch" data-view="twitch">
-          <div class="page-intro-card platform-intro twitch-platform-intro"><div class="platform-large-icon"><svg viewBox="0 0 24 24"><path d="M5 3h16v12l-5 5h-4l-3 2v-2H5z"/><path d="M10 7v6m5-6v6"/></svg></div><div><p class="eyebrow">STREAMING PLATFORM</p><h3>Twitch</h3><p class="muted">Un espacio reservado para integrar chat, alertas y herramientas de Twitch en NoteLive Studio.</p></div></div>
-          <section class="panel coming-soon-panel"><div class="coming-soon-symbol">✦</div><div><span class="status-tag">EN PLANIFICACIÓN</span><h3>La próxima estación del estudio</h3><p class="muted">La navegación ya está preparada para Twitch, pero todavía no hay una conexión activa. Podemos integrar primero el chat y después las alertas, cuando definamos los permisos y el método de conexión.</p></div><button class="button button-secondary" type="button" data-go="spotify">Ver módulos disponibles</button></section>
+          <div class="page-intro-card platform-intro twitch-platform-intro"><div class="platform-large-icon"><svg viewBox="0 0 24 24"><path d="M5 3h16v12l-5 5h-4l-3 2v-2H5z"/><path d="M10 7v6m5-6v6"/></svg></div><div><p class="eyebrow">STREAMING PLATFORM / LIVE TOOLS</p><h3>Twitch</h3><p class="muted">Conecta tu canal, personaliza las alertas de follow y crea fuentes de navegador para chat y notificaciones.</p></div></div>
+
+          <section class="panel twitch-setup-panel">
+            <div class="section-heading"><div class="step-number">01</div><div><h3>Conectar tu cuenta de Twitch</h3><p class="muted">La autenticación se hace con Twitch; tus credenciales de desarrollador se guardan localmente en este PC.</p></div></div>
+            <div class="twitch-setup-note"><strong>Antes de conectar:</strong> crea una aplicación en <a href="https://dev.twitch.tv/console/apps" target="_blank" rel="noreferrer">Twitch Developer Console</a>, añade la URL de redirección exacta que aparece abajo y conserva el tipo de cliente confidencial para usar Client Secret.</div>
+            <div class="twitch-credentials-grid">
+              <div class="field-stack"><label for="twitch-client-id">Twitch Client ID</label><input id="twitch-client-id" autocomplete="off" spellcheck="false" placeholder="Pega el Client ID de tu aplicación"></div>
+              <div class="field-stack"><label for="twitch-client-secret">Twitch Client Secret</label><input id="twitch-client-secret" type="password" autocomplete="new-password" placeholder="Guardado localmente; vacío conserva el actual"><span class="field-hint">No se muestra de nuevo después de guardarlo. No lo compartas ni lo publiques.</span></div>
+            </div>
+            <div class="twitch-redirect-box"><div><span class="tiny-label">OAUTH REDIRECT URL · COPIA EXACTAMENTE</span><code id="twitch-redirect-uri">http://localhost:8787/twitch/callback</code></div><button class="button button-secondary" id="twitch-copy-redirect" type="button">Copiar URL</button></div>
+            <div class="button-row twitch-connect-actions">
+              <button class="button button-secondary" id="twitch-save-connection" type="button">Guardar credenciales</button>
+              <button class="button button-primary" id="twitch-connect" type="button">Conectar cuenta Twitch</button>
+              <button class="button button-quiet" id="twitch-disconnect" type="button" hidden>Desconectar</button>
+            </div>
+            <div class="connection-status compact-status twitch-status-card">
+              <div class="status-icon">♧</div>
+              <div class="status-copy"><strong id="twitch-status-title">Twitch no conectado</strong><span id="twitch-status-desc">Guarda las credenciales y autoriza el acceso a tu canal.</span></div>
+              <span class="status-tag" id="twitch-status-tag">SETUP</span>
+            </div>
+            <div aria-live="polite" class="api-message" id="twitch-message" role="status"></div>
+            <details class="twitch-help-details"><summary>¿Qué permisos pide NoteLive Studio?</summary><p>Solo solicita <code>moderator:read:followers</code> para recibir nuevos follows y <code>user:read:chat</code> para leer el chat mediante Twitch EventSub. No se pide permiso para escribir mensajes ni moderar el canal.</p></details>
+          </section>
+
+          <section class="panel twitch-alert-panel">
+            <div class="section-heading"><div class="step-number">02</div><div><h3>Alerta de nuevo seguidor</h3><p class="muted">Esta alerta es exclusiva de Twitch; no cambia ni reemplaza el overlay de Spotify.</p></div></div>
+            <div class="twitch-toggle-row"><label class="check-label"><input id="twitch-alert-enabled" type="checkbox" checked> Mostrar alertas reales de follow</label><label class="check-label"><input id="twitch-alert-sound" type="checkbox" checked> Sonido de alerta</label></div>
+            <div class="twitch-design-grid">
+              <div class="field-stack"><label for="twitch-alert-style">Estilo</label><select id="twitch-alert-style"><option value="card">Tarjeta glass</option><option value="neon">Neón</option><option value="minimal">Minimalista</option><option value="pixel">Pixel / retro</option></select></div>
+              <div class="field-stack"><label for="twitch-alert-color">Color principal</label><div class="color-picker-row"><input id="twitch-alert-color" type="color" value="#a970ff"><span class="muted">Bordes, icono y brillo</span></div></div>
+              <div class="field-stack"><label for="twitch-alert-duration">Duración <strong id="twitch-alert-duration-value">7 s</strong></label><input id="twitch-alert-duration" type="range" min="3" max="20" step="1" value="7"><span class="field-hint">Entre 3 y 20 segundos</span></div>
+              <div class="field-stack"><label for="twitch-alert-title">Título de la alerta</label><input id="twitch-alert-title" maxlength="64" value="¡Nuevo follow!"></div>
+              <div class="field-stack twitch-full-field"><label for="twitch-alert-message">Mensaje de la alerta</label><input id="twitch-alert-message" maxlength="120" value="{username} ahora te sigue"><span class="field-hint">Usa <code>{username}</code> para insertar el nombre del seguidor.</span></div>
+            </div>
+            <div class="button-row twitch-connect-actions"><button class="button button-primary" id="twitch-save-alerts" type="button">Guardar alerta</button><button class="button button-secondary" id="twitch-test-follow" type="button">Probar alerta</button><button class="button button-secondary" id="twitch-preview-alert" type="button">Abrir vista previa</button></div>
+            <div class="twitch-url-card"><div><span class="tiny-label">FUENTE DE NAVEGADOR · ALERTAS</span><code id="twitch-alert-url">http://127.0.0.1:8787/twitch-overlay</code><small>OBS · recomendado: 600 × 260 px · fondo transparente</small></div><button class="button button-secondary" id="twitch-copy-alert-url" type="button">Copiar URL</button></div>
+          </section>
+
+          <section class="panel twitch-chat-panel">
+            <div class="section-heading"><div class="step-number">03</div><div><h3>Chat de Twitch y voz de IA</h3><p class="muted">Revisa mensajes en NoteLive Studio, crea una fuente de chat para OBS y decide si ElevenLabs los leerá en voz alta.</p></div></div>
+            <div class="twitch-toggle-row"><label class="check-label"><input id="twitch-chat-overlay-enabled" type="checkbox" checked> Mostrar chat en el overlay de OBS</label><label class="check-label"><input id="twitch-read-chat" type="checkbox" checked> Leer mensajes de Twitch con ElevenLabs</label></div>
+            <div class="twitch-design-grid twitch-chat-design-grid">
+              <div class="field-stack"><label for="twitch-chat-color">Color de usuario / acento</label><div class="color-picker-row"><input id="twitch-chat-color" type="color" value="#a970ff"><span class="muted">Tema del chat</span></div></div>
+              <div class="field-stack"><label for="twitch-chat-opacity">Opacidad del fondo <strong id="twitch-chat-opacity-value">82%</strong></label><input id="twitch-chat-opacity" type="range" min="20" max="100" step="5" value="82"></div>
+              <div class="field-stack"><label for="twitch-chat-max">Mensajes visibles</label><select id="twitch-chat-max"><option value="3">3 mensajes</option><option value="4">4 mensajes</option><option value="6" selected>6 mensajes</option><option value="8">8 mensajes</option><option value="10">10 mensajes</option><option value="12">12 mensajes</option></select></div>
+              <div class="field-stack"><label for="twitch-chat-font-size">Tamaño del texto <strong id="twitch-chat-font-size-value">17 px</strong></label><input id="twitch-chat-font-size" type="range" min="12" max="24" step="1" value="17"></div>
+            </div>
+            <div class="twitch-toggle-row"><label class="check-label"><input id="twitch-chat-timestamps" type="checkbox"> Mostrar hora</label><label class="check-label"><input id="twitch-chat-compact" type="checkbox"> Modo compacto</label></div>
+            <div class="button-row twitch-connect-actions"><button class="button button-primary" id="twitch-save-chat" type="button">Guardar chat y voz</button><button class="button button-secondary" id="twitch-preview-chat" type="button">Abrir vista previa del chat</button></div>
+            <div class="twitch-url-card"><div><span class="tiny-label">FUENTE DE NAVEGADOR · CHAT</span><code id="twitch-chat-url">http://127.0.0.1:8787/twitch-chat-overlay</code><small>OBS · recomendado: 480 × 760 px · fondo transparente</small></div><button class="button button-secondary" id="twitch-copy-chat-url" type="button">Copiar URL</button></div>
+            <div class="chat-heading twitch-chat-heading"><span class="tiny-label">CHAT EN VIVO</span><span class="chat-count" id="twitch-chat-count">0 mensajes</span></div>
+            <div aria-live="polite" class="chat-feed twitch-chat-feed" id="twitch-chat-feed"><div class="empty-chat">Conecta tu cuenta; los mensajes nuevos aparecerán aquí.</div></div>
+            <p class="field-hint">La voz reutiliza los ajustes de ElevenLabs que ya configuraste en Voz IA. Mantén activa en OBS tu fuente de audio <code>/tts</code> para que la voz se escuche en directo.</p>
+          </section>
         </section>
 
         <section class="page-view" id="page-appearance" data-view="appearance">
