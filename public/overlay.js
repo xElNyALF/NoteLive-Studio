@@ -225,9 +225,44 @@ function applyOverlayConfig(config) {
   drawAudioVisualizer();
 }
 
+function ensureInlineVisualizerBars() {
+  if (inlineVisualizer.childElementCount) return;
+  for (let i = 0; i < 32; i += 1) {
+    const bar = document.createElement('span');
+    bar.className = 'inline-spectrum-bar';
+    inlineVisualizer.appendChild(bar);
+  }
+}
+
+function drawInlineVisualizer() {
+  const visible = Boolean(
+    overlayConfig.visualizerEnabled &&
+    audioVisualizer.active &&
+    overlayConfig.visualizerPlacement === 'inside' &&
+    banner.classList.contains('is-visible') &&
+    overlayConfig.notificationEnabled
+  );
+  inlineVisualizer.hidden = !visible;
+  if (!visible) return;
+  ensureInlineVisualizerBars();
+  const levels = Array.isArray(audioVisualizer.levels) ? audioVisualizer.levels : [];
+  const sensitivity = Math.max(0.5, Math.min(2, Number(overlayConfig.visualizerSensitivity) || 1.2));
+  const height = Math.max(20, Math.min(80, Number(overlayConfig.visualizerHeight) || 34));
+  for (let i = 0; i < inlineVisualizer.children.length; i += 1) {
+    const level = Math.max(0.035, Math.min(1, Number(levels[i] || 0) * sensitivity));
+    inlineVisualizer.children[i].style.height = Math.max(2, level * height * 0.78) + 'px';
+    inlineVisualizer.children[i].style.opacity = String(0.46 + level * 0.54);
+  }
+}
+
 function drawAudioVisualizer() {
-  const visible = Boolean(overlayConfig.visualizerEnabled && audioVisualizer.active);
+  const visible = Boolean(
+    overlayConfig.visualizerEnabled &&
+    audioVisualizer.active &&
+    overlayConfig.visualizerPlacement !== 'inside'
+  );
   visualizerPanel.hidden = !visible;
+  drawInlineVisualizer();
   if (!visible) return;
   const bounds = visualizerCanvas.getBoundingClientRect();
   if (!bounds.width || !bounds.height) return;
