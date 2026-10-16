@@ -349,7 +349,7 @@ function makeTwitchChatSegments(event, fallbackComment) {
   const fragments = Array.isArray(event && event.message && event.message.fragments) ? event.message.fragments : [];
   if (!fragments.length) return [{ type: 'text', text: fallbackComment || '' }];
   return fragments.slice(0, 100).map(fragment => {
-    const text = cleanText(fragment && fragment.text || '', 500);
+    const text = String(fragment && fragment.text || '').replace(/[\\u0000-\\u001f\\u007f]/g, ' ').slice(0, 500);
     const emote = fragment && fragment.emote;
     if (fragment && fragment.type === 'emote' && emote && /^[A-Za-z0-9_-]{1,80}$/.test(String(emote.id || ''))) {
       const format = Array.isArray(emote.format) && emote.format.includes('animated') ? 'animated' : 'default';
