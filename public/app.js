@@ -1277,8 +1277,8 @@ $('#twitch-test-follow').addEventListener('click', async () => {
   }
 });
 
-$('#twitch-preview-alert').addEventListener('click', () => window.open('/twitch-overlay', '_blank'));
-$('#twitch-preview-chat').addEventListener('click', () => window.open('/twitch-chat-overlay', '_blank'));
+$('#twitch-preview-alert').addEventListener('click', () => window.open('/twitch-overlay?preview=1', '_blank'));
+$('#twitch-preview-chat').addEventListener('click', () => window.open('/twitch-chat-overlay?preview=1', '_blank'));
 $('#twitch-copy-redirect').addEventListener('click', () => copyTwitchValue('twitch-redirect-uri'));
 $('#twitch-copy-alert-url').addEventListener('click', () => copyTwitchValue('twitch-alert-url'));
 $('#twitch-copy-chat-url').addEventListener('click', () => copyTwitchValue('twitch-chat-url'));
