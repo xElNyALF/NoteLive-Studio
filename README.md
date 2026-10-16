@@ -22,6 +22,8 @@ La configuración y las credenciales se guardan en la carpeta de datos de NoteLi
 
 ## Funciones
 
+- **v0.3.1:** editor de notificación musical (estilo, posición, duración, colores, opacidad y elementos visibles), visualizador FFT real del audio de Windows para OBS (barras, onda, espejo o círculo) y mini overlay de escritorio opcional. La captura se inicia manualmente; el audio no se graba y solo se envían niveles al servidor local.
+
 - Interfaz reorganizada en navegación lateral: Inicio, Twitch (apartado reservado), Spotify, TikTok LIVE, Voz IA, OBS y Personalizar.
 - Fondo personalizable de la interfaz: importa una imagen local, la aplicación optimiza su tamaño, y permite ajustar el desenfoque, oscurecimiento, opacidad de los paneles, posición del wallpaper y color de acento. Los ajustes se guardan en el almacenamiento local de la instalación.
 

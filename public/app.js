@@ -182,6 +182,8 @@ function renderStatus(data) {
 
   renderTikTokStatus(data.tiktok || {});
   applyVoiceStatus(data.voice || {});
+  applyMusicDesignControls(data.overlay || {});
+  updateAudioCaptureUI(Boolean(data.audioVisualizerActive));
   if (data.chatHistory) syncChatHistory(data.chatHistory);
 }
 
@@ -649,3 +651,270 @@ loadAppearance();
 let lastView = 'home';
 try { lastView = localStorage.getItem('notelive-studio.active-view') || 'home'; } catch {}
 switchStudioView(lastView);
+
+
+// Music notification designer + real local system-audio analysis.
+const musicDefaultConfig = {
+  notificationEnabled: true, durationSeconds: 8, style: 'vinyl', position: 'top-left',
+  accentColor: '#1ed760', cardOpacity: 92, showCover: true, showArtist: true, showProgress: true,
+  visualizerEnabled: true, visualizerStyle: 'bars', visualizerColor: '#ff6b9a',
+  visualizerSensitivity: 1.2, visualizerHeight: 34
+};
+const musicControlIds = {
+  notificationEnabled: 'music-notification-enabled',
+  durationSeconds: 'music-notification-duration',
+  style: 'music-notification-style',
+  position: 'music-notification-position',
+  accentColor: 'music-accent-color',
+  cardOpacity: 'music-card-opacity',
+  showCover: 'music-show-cover',
+  showArtist: 'music-show-artist',
+  showProgress: 'music-show-progress',
+  visualizerEnabled: 'music-visualizer-enabled',
+  visualizerStyle: 'music-visualizer-style',
+  visualizerColor: 'music-visualizer-color',
+  visualizerSensitivity: 'music-visualizer-sensitivity',
+  visualizerHeight: 'music-visualizer-height'
+};
+let systemAudioStream = null;
+let systemAudioContext = null;
+let systemAudioAnalyser = null;
+let systemAudioSource = null;
+let systemAudioFrame = 0;
+let lastAudioPostAt = 0;
+let audioPostInFlight = false;
+let pendingAudioFrame = null;
+let activeAudioCapture = false;
+
+function musicControl(id) {
+  return document.getElementById(id);
+}
+
+function updateMusicValueLabels() {
+  musicControl('music-notification-duration-value').textContent = musicControl('music-notification-duration').value + ' s';
+  musicControl('music-card-opacity-value').textContent = musicControl('music-card-opacity').value + '%';
+  musicControl('music-visualizer-sensitivity-value').textContent = Number(musicControl('music-visualizer-sensitivity').value).toFixed(1) + '×';
+  musicControl('music-visualizer-height-value').textContent = musicControl('music-visualizer-height').value + ' px';
+}
+
+function applyMusicDesignControls(config) {
+  const values = { ...musicDefaultConfig, ...(config && typeof config === 'object' ? config : {}) };
+  for (const [key, id] of Object.entries(musicControlIds)) {
+    const control = musicControl(id);
+    if (!control || document.activeElement === control) continue;
+    if (control.type === 'checkbox') control.checked = values[key] !== false;
+    else control.value = String(values[key]);
+  }
+  updateMusicValueLabels();
+}
+
+function readMusicDesignControls() {
+  const result = {};
+  for (const [key, id] of Object.entries(musicControlIds)) {
+    const control = musicControl(id);
+    if (!control) continue;
+    result[key] = control.type === 'checkbox'
+      ? control.checked
+      : (control.type === 'range' || control.type === 'number' ? Number(control.value) : control.value);
+  }
+  return result;
+}
+
+function setMusicDesignMessage(text, kind) {
+  const el = musicControl('music-design-message');
+  el.textContent = text || '';
+  el.className = 'api-message' + (kind ? ' ' + kind : '');
+}
+
+function updateAudioCaptureUI(isActive, textOverride) {
+  activeAudioCapture = Boolean(isActive);
+  const state = musicControl('music-audio-capture-state');
+  const help = musicControl('music-audio-capture-help');
+  const button = musicControl('music-audio-capture-toggle');
+  if (!state || !help || !button) return;
+  const desktopCapable = Boolean(window.noteLiveDesktop && window.noteLiveDesktop.isDesktopApp);
+  state.textContent = textOverride || (activeAudioCapture ? 'Captura de audio activa · análisis local' : 'Captura de audio desactivada');
+  state.classList.toggle('is-active', activeAudioCapture);
+  help.textContent = activeAudioCapture
+    ? 'Analizando el audio que sale por Windows. No se guarda ni se envía fuera de este PC.'
+    : 'Actívala mientras suena Spotify. Solo se analizan niveles de audio en este PC; no se graba el sonido.';
+  button.disabled = !desktopCapable && !activeAudioCapture;
+  button.textContent = activeAudioCapture ? 'Detener captura de audio' : 'Activar captura de audio';
+  if (!desktopCapable && !activeAudioCapture) {
+    state.textContent = 'Captura del sistema disponible en la app de escritorio';
+    help.textContent = 'Abre NoteLive Studio instalado para capturar el audio de Windows.';
+  }
+}
+
+function sendAudioFrame(payload) {
+  if (audioPostInFlight) {
+    pendingAudioFrame = payload;
+    return;
+  }
+  audioPostInFlight = true;
+  fetch('/api/overlay/audio', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }).catch(() => {}).finally(() => {
+    audioPostInFlight = false;
+    if (pendingAudioFrame) {
+      const next = pendingAudioFrame;
+      pendingAudioFrame = null;
+      sendAudioFrame(next);
+    }
+  });
+}
+
+function stopSystemAudioVisualizer(showMessage) {
+  if (!systemAudioStream && !systemAudioContext) return;
+  activeAudioCapture = false;
+  if (systemAudioFrame) cancelAnimationFrame(systemAudioFrame);
+  systemAudioFrame = 0;
+  const oldStream = systemAudioStream;
+  systemAudioStream = null;
+  if (oldStream) {
+    for (const track of oldStream.getTracks()) {
+      try { track.stop(); } catch {}
+    }
+  }
+  try { if (systemAudioSource) systemAudioSource.disconnect(); } catch {}
+  systemAudioSource = null;
+  systemAudioAnalyser = null;
+  if (systemAudioContext) systemAudioContext.close().catch(() => {});
+  systemAudioContext = null;
+  pendingAudioFrame = { active: false, levels: [], rms: 0 };
+  if (!audioPostInFlight) {
+    const finalFrame = pendingAudioFrame;
+    pendingAudioFrame = null;
+    sendAudioFrame(finalFrame);
+  }
+  updateAudioCaptureUI(false);
+  if (showMessage) setMusicDesignMessage('Captura de audio detenida.', '');
+}
+
+async function startSystemAudioVisualizer() {
+  const button = musicControl('music-audio-capture-toggle');
+  if (!window.noteLiveDesktop || !window.noteLiveDesktop.isDesktopApp) {
+    setMusicDesignMessage('La captura de audio del sistema requiere la aplicación de escritorio de NoteLive Studio.', 'error');
+    return;
+  }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+    setMusicDesignMessage('Esta versión de Electron no ofrece captura de audio del sistema en este equipo.', 'error');
+    return;
+  }
+  button.disabled = true;
+  setMusicDesignMessage('Activando captura local del audio de Windows…', '');
+  try {
+    // The app explicitly asks for capture after the user clicks. Only FFT levels leave this renderer, to localhost.
+    const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+    const audioTracks = stream.getAudioTracks();
+    for (const track of stream.getVideoTracks()) {
+      try { track.stop(); } catch {}
+    }
+    if (!audioTracks.length) {
+      for (const track of stream.getTracks()) track.stop();
+      throw new Error('Windows no devolvió una pista de audio. Comprueba que el audio del sistema esté disponible.');
+    }
+    systemAudioStream = stream;
+    systemAudioContext = new AudioContext();
+    await systemAudioContext.resume();
+    systemAudioAnalyser = systemAudioContext.createAnalyser();
+    systemAudioAnalyser.fftSize = 2048;
+    systemAudioAnalyser.smoothingTimeConstant = 0.72;
+    systemAudioSource = systemAudioContext.createMediaStreamSource(stream);
+    systemAudioSource.connect(systemAudioAnalyser);
+    activeAudioCapture = true;
+    sendAudioFrame({ active: true, levels: Array(32).fill(0), rms: 0 });
+    updateAudioCaptureUI(true);
+    setMusicDesignMessage('Captura activa. Reproduce una canción para ver el ritmo real.', 'success');
+    audioTracks[0].addEventListener('ended', () => stopSystemAudioVisualizer(false), { once: true });
+
+    const freq = new Uint8Array(systemAudioAnalyser.frequencyBinCount);
+    const time = new Uint8Array(systemAudioAnalyser.fftSize);
+    const tick = () => {
+      if (!activeAudioCapture || !systemAudioAnalyser) return;
+      systemAudioAnalyser.getByteFrequencyData(freq);
+      systemAudioAnalyser.getByteTimeDomainData(time);
+      const levels = [];
+      const count = 32;
+      for (let i = 0; i < count; i += 1) {
+        const start = Math.floor(Math.pow(i / count, 2) * freq.length);
+        const end = Math.max(start + 1, Math.floor(Math.pow((i + 1) / count, 2) * freq.length));
+        let total = 0;
+        for (let j = start; j < Math.min(end, freq.length); j += 1) total += freq[j];
+        const average = total / Math.max(1, Math.min(end, freq.length) - start);
+        levels.push(Math.min(1, average / 190));
+      }
+      let rmsTotal = 0;
+      for (let i = 0; i < time.length; i += 1) {
+        const value = (time[i] - 128) / 128;
+        rmsTotal += value * value;
+      }
+      const rms = Math.sqrt(rmsTotal / time.length);
+      const now = performance.now();
+      if (now - lastAudioPostAt >= 65) {
+        lastAudioPostAt = now;
+        sendAudioFrame({ active: true, levels, rms });
+      }
+      systemAudioFrame = requestAnimationFrame(tick);
+    };
+    systemAudioFrame = requestAnimationFrame(tick);
+  } catch (error) {
+    stopSystemAudioVisualizer(false);
+    setMusicDesignMessage(error.message || 'No se pudo activar la captura de audio.', 'error');
+  } finally {
+    button.disabled = false;
+    updateAudioCaptureUI(activeAudioCapture);
+  }
+}
+
+musicControl('music-save-design').addEventListener('click', async () => {
+  const button = musicControl('music-save-design');
+  button.disabled = true;
+  button.textContent = 'Guardando…';
+  try {
+    const result = await postJson('/api/overlay/config', readMusicDesignControls());
+    applyMusicDesignControls(result.config || {});
+    setMusicDesignMessage('Diseño guardado. La fuente de OBS lo recibirá automáticamente.', 'success');
+  } catch (error) {
+    setMusicDesignMessage(error.message || 'No se pudo guardar el diseño.', 'error');
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Guardar diseño';
+  }
+});
+
+musicControl('music-preview-overlay').addEventListener('click', () => {
+  window.open('/overlay', '_blank');
+});
+
+musicControl('music-floating-overlay').addEventListener('click', async () => {
+  const button = musicControl('music-floating-overlay');
+  if (!window.noteLiveDesktop || !window.noteLiveDesktop.toggleFloatingOverlay) {
+    setMusicDesignMessage('La mini ventana flotante está disponible en la aplicación de escritorio.', 'error');
+    return;
+  }
+  try {
+    const result = await window.noteLiveDesktop.toggleFloatingOverlay();
+    button.textContent = result && result.open ? 'Cerrar mini overlay flotante' : 'Mostrar mini overlay flotante';
+  } catch (error) {
+    setMusicDesignMessage(error.message || 'No se pudo abrir la mini ventana.', 'error');
+  }
+});
+
+musicControl('music-audio-capture-toggle').addEventListener('click', () => {
+  if (activeAudioCapture) stopSystemAudioVisualizer(true);
+  else startSystemAudioVisualizer();
+});
+
+[
+  'music-notification-duration',
+  'music-card-opacity',
+  'music-visualizer-sensitivity',
+  'music-visualizer-height'
+].forEach(id => musicControl(id).addEventListener('input', updateMusicValueLabels));
+
+if (!window.noteLiveDesktop || !window.noteLiveDesktop.isDesktopApp) {
+  musicControl('music-floating-overlay').disabled = true;
+}

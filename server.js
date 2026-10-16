@@ -32,6 +32,8 @@ let polling = false;
 let lastError = '';
 const sseClients = new Set();
 const tiktokSseClients = new Set();
+const overlaySseClients = new Set();
+let audioVisualizerState = { active: false, levels: Array(32).fill(0), rms: 0, updatedAt: Date.now() };
 let tiktokConnection = null;
 let tiktokStatus = { connected: false, status: 'disconnected', username: config.tiktokUsername || '', error: '' };
 let recentChatMessages = [];
@@ -49,6 +51,51 @@ let playbackState = {
   error: ''
 };
 
+
+const DEFAULT_OVERLAY_CONFIG = Object.freeze({
+  notificationEnabled: true,
+  durationSeconds: 8,
+  style: 'vinyl',
+  position: 'top-left',
+  accentColor: '#1ed760',
+  cardOpacity: 92,
+  showCover: true,
+  showArtist: true,
+  showProgress: true,
+  visualizerEnabled: true,
+  visualizerStyle: 'bars',
+  visualizerColor: '#ff6b9a',
+  visualizerSensitivity: 1.2,
+  visualizerHeight: 34
+});
+
+function clampNumber(value, min, max, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.min(max, Math.max(min, number)) : fallback;
+}
+
+function normalizeOverlayConfig(value) {
+  const input = value && typeof value === 'object' ? value : {};
+  const validHex = candidate => typeof candidate === 'string' && /^#[0-9a-fA-F]{6}$/.test(candidate);
+  const pick = (field, options) => options.includes(input[field]) ? input[field] : DEFAULT_OVERLAY_CONFIG[field];
+  return {
+    notificationEnabled: input.notificationEnabled !== false,
+    durationSeconds: Math.round(clampNumber(input.durationSeconds, 3, 20, DEFAULT_OVERLAY_CONFIG.durationSeconds)),
+    style: pick('style', ['vinyl', 'glass', 'minimal']),
+    position: pick('position', ['top-left', 'top-right', 'bottom-left', 'bottom-right']),
+    accentColor: validHex(input.accentColor) ? input.accentColor : DEFAULT_OVERLAY_CONFIG.accentColor,
+    cardOpacity: Math.round(clampNumber(input.cardOpacity, 40, 100, DEFAULT_OVERLAY_CONFIG.cardOpacity)),
+    showCover: input.showCover !== false,
+    showArtist: input.showArtist !== false,
+    showProgress: input.showProgress !== false,
+    visualizerEnabled: input.visualizerEnabled !== false,
+    visualizerStyle: pick('visualizerStyle', ['bars', 'wave', 'mirror', 'circle']),
+    visualizerColor: validHex(input.visualizerColor) ? input.visualizerColor : DEFAULT_OVERLAY_CONFIG.visualizerColor,
+    visualizerSensitivity: clampNumber(input.visualizerSensitivity, 0.5, 2, DEFAULT_OVERLAY_CONFIG.visualizerSensitivity),
+    visualizerHeight: Math.round(clampNumber(input.visualizerHeight, 20, 80, DEFAULT_OVERLAY_CONFIG.visualizerHeight))
+  };
+}
+
 function loadConfig() {
   let data = {};
   try { data = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8')); } catch {}
@@ -62,7 +109,8 @@ function loadConfig() {
     ttsSpeed: Number.isFinite(Number(data.ttsSpeed)) ? Math.min(1.2, Math.max(0.7, Number(data.ttsSpeed))) : 1,
     ttsMaxChars: Number.isFinite(Number(data.ttsMaxChars)) ? Math.min(180, Math.max(30, Math.round(Number(data.ttsMaxChars)))) : 180,
     antiSpam: data.antiSpam !== false,
-    ttsEnabled: data.ttsEnabled !== false
+    ttsEnabled: data.ttsEnabled !== false,
+    overlay: normalizeOverlayConfig(data.overlay)
   };
 }
 
@@ -135,6 +183,8 @@ function publicStatus() {
     redirectUri: REDIRECT_URI,
     overlayUrl: `http://${HOST}:${PORT}/overlay`,
     playback: playbackState,
+    overlay: config.overlay,
+    audioVisualizerActive: audioVisualizerState.active,
     tiktok: { ...tiktokStatus, username: tiktokStatus.username || config.tiktokUsername || '' },
     chatHistory: recentChatMessages.slice(0, 30),
     voice: {
@@ -163,6 +213,13 @@ function publishTikTokEvent(payload) {
   const packet = `data: ${JSON.stringify(payload)}\n\n`;
   for (const client of tiktokSseClients) {
     try { client.write(packet); } catch { tiktokSseClients.delete(client); }
+  }
+}
+
+function publishOverlayEvent(packet) {
+  const data = 'data: ' + JSON.stringify(packet) + '\n\n';
+  for (const client of overlaySseClients) {
+    try { client.write(data); } catch { overlaySseClients.delete(client); }
   }
 }
 
@@ -482,6 +539,66 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === 'GET' && pathname === '/api/status') {
     return sendJson(res, 200, publicStatus());
+  }
+
+  if (req.method === 'GET' && pathname === '/api/overlay/config') {
+    return sendJson(res, 200, { config: config.overlay, audioVisualizer: audioVisualizerState });
+  }
+
+  if (req.method === 'POST' && pathname === '/api/overlay/config') {
+    try {
+      const body = await readRequestJson(req);
+      config.overlay = normalizeOverlayConfig(body);
+      persistJson(CONFIG_FILE, config);
+      publishOverlayEvent({ type: 'config', config: config.overlay });
+      return sendJson(res, 200, { ok: true, config: config.overlay });
+    } catch (error) {
+      return sendJson(res, 400, { error: error.message || 'No se pudo guardar el diseño musical.' });
+    }
+  }
+
+  if (req.method === 'POST' && pathname === '/api/overlay/audio') {
+    try {
+      const body = await readRequestJson(req);
+      const active = body.active === true;
+      const rawLevels = Array.isArray(body.levels) ? body.levels.slice(0, 40) : [];
+      const levels = active
+        ? Array.from({ length: 32 }, (_, index) => clampNumber(rawLevels[index], 0, 1, 0))
+        : Array(32).fill(0);
+      audioVisualizerState = {
+        active,
+        levels,
+        rms: active ? clampNumber(body.rms, 0, 1, 0) : 0,
+        updatedAt: Date.now()
+      };
+      publishOverlayEvent({ type: 'audio', audio: audioVisualizerState });
+      return sendJson(res, 200, { ok: true });
+    } catch (error) {
+      return sendJson(res, 400, { error: error.message || 'No se pudo actualizar el visualizador.' });
+    }
+  }
+
+  if (req.method === 'GET' && pathname === '/api/overlay/events') {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no'
+    });
+    res.write('data: ' + JSON.stringify({
+      type: 'init',
+      config: config.overlay,
+      audio: audioVisualizerState
+    }) + '\n\n');
+    overlaySseClients.add(res);
+    const heartbeat = setInterval(() => {
+      try { res.write(': keep-alive\n\n'); } catch { clearInterval(heartbeat); }
+    }, 25000);
+    req.on('close', () => {
+      clearInterval(heartbeat);
+      overlaySseClients.delete(res);
+    });
+    return;
   }
 
   if (req.method === 'GET' && pathname === '/tts') {
