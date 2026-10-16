@@ -1210,22 +1210,35 @@ function renderTwitchStatus(data = {}) {
   const disconnect = $('#twitch-disconnect');
   const connect = $('#twitch-connect');
   const clientIdInput = $('#twitch-client-id');
+  const publicClient = data.publicClient === true;
+  const hasAuthSetup = Boolean(data.hasClientId) && (publicClient || Boolean(data.hasClientSecret));
+  const legacyConfig = $('#twitch-legacy-config');
+  const publicNote = $('#twitch-public-client-note');
+  const saveCredentials = $('#twitch-save-connection');
+  const deviceFlowPanel = $('#twitch-device-flow-panel');
+  if (legacyConfig) legacyConfig.hidden = publicClient;
+  if (publicNote) publicNote.hidden = !publicClient;
+  if (saveCredentials) saveCredentials.hidden = publicClient;
   if (data.clientId && document.activeElement !== clientIdInput) clientIdInput.value = data.clientId;
   if (data.redirectUri) $('#twitch-redirect-uri').textContent = data.redirectUri;
   if (data.alertUrl) $('#twitch-alert-url').textContent = data.alertUrl;
   if (data.chatOverlayUrl) $('#twitch-chat-url').textContent = data.chatOverlayUrl;
   tag.classList.remove('online');
   disconnect.hidden = !data.authorized;
-  connect.disabled = Boolean(data.connected) || !data.hasClientId || !data.hasClientSecret;
+  connect.disabled = Boolean(data.connected) || !data.hasClientId || (!publicClient && !data.hasClientSecret);
 
   if (data.connected) {
     title.textContent = 'Conectado a Twitch: ' + (data.username || 'tu canal');
     desc.textContent = 'El chat y las alertas están conectados.' + (data.error ? ' Aviso: ' + data.error : '');
     tag.textContent = 'CONNECTED';
     tag.classList.add('online');
+  } else if (data.status === 'authorizing') {
+    title.textContent = 'Autoriza NoteLive Studio en Twitch';
+    desc.textContent = 'Confirma el código en la página de Twitch para conceder los permisos solicitados.';
+    tag.textContent = 'AUTHORIZE';
   } else if (data.status === 'connecting') {
     title.textContent = 'Conectando con Twitch…';
-    desc.textContent = data.error || 'Autorización iniciada; esperando EventSub.';
+    desc.textContent = data.error || 'Autorización recibida; activando chat y alertas.';
     tag.textContent = 'CONNECTING';
   } else if (data.status === 'reconnecting') {
     title.textContent = 'Reconectando con Twitch…';
@@ -1233,14 +1246,18 @@ function renderTwitchStatus(data = {}) {
     tag.textContent = 'RECONNECTING';
   } else if (data.status === 'error') {
     title.textContent = 'Twitch necesita atención';
-    desc.textContent = data.error || 'Revisa los permisos de tu aplicación de Twitch.';
+    desc.textContent = data.error || 'Revisa la autorización de tu cuenta de Twitch.';
     tag.textContent = 'ERROR';
+    if (deviceFlowPanel) deviceFlowPanel.hidden = true;
   } else {
     title.textContent = 'Twitch no conectado';
-    desc.textContent = data.error || (data.hasClientId && data.hasClientSecret
-      ? 'Las credenciales están guardadas. Autoriza la cuenta para iniciar chat y alertas.'
+    desc.textContent = data.error || (hasAuthSetup
+      ? (publicClient ? 'Pulsa Conectar cuenta Twitch para autorizar con un código.' : 'Las credenciales están guardadas. Autoriza la cuenta para iniciar chat y alertas.')
       : 'Guarda Client ID y Client Secret de tu aplicación de Twitch.');
-    tag.textContent = data.hasClientId && data.hasClientSecret ? 'READY' : 'SETUP';
+    tag.textContent = hasAuthSetup ? 'READY' : 'SETUP';
+  }
+  if (deviceFlowPanel && (data.connected || data.status === 'connecting' || data.status === 'reconnecting' || data.status === 'disconnected')) {
+    deviceFlowPanel.hidden = true;
   }
 }
 
@@ -1447,7 +1464,25 @@ $('#twitch-connect').addEventListener('click', async () => {
   const button = $('#twitch-connect');
   button.disabled = true;
   try {
-    const state = await saveTwitchSettings('Configuración guardada. Abriendo Twitch para autorizar…');
+    const state = await saveTwitchSettings('Preparando la conexión segura con Twitch…');
+    if (state.publicClient) {
+      if (!state.hasClientId) {
+        setTwitchMessage('Esta versión no tiene configurado el Client ID público de Twitch.', 'error');
+        return;
+      }
+      const flow = await postJson('/api/twitch/device/start', {});
+      $('#twitch-device-code').textContent = flow.userCode;
+      $('#twitch-device-verification-link').href = flow.verificationUri;
+      const minutes = Math.max(1, Math.ceil(Number(flow.expiresIn || 1800) / 60));
+      $('#twitch-device-expiry').textContent = 'El código caduca en aproximadamente ' + minutes + ' minutos. Si vence, genera uno nuevo.';
+      $('#twitch-device-flow-panel').hidden = false;
+      setTwitchMessage('Código generado. Abre Twitch y confirma el código para terminar la conexión.', 'success');
+      // In Electron, external links are routed to the system browser by main.cjs.
+      // The visible link remains available if the browser blocks automatic opening.
+      try { window.open(flow.verificationUri, '_blank', 'noopener'); } catch {}
+      return;
+    }
+
     if (!state.hasClientId || !state.hasClientSecret) {
       setTwitchMessage('Primero pega y guarda el Client ID y el Client Secret de Twitch.', 'error');
       return;
@@ -1460,7 +1495,7 @@ $('#twitch-connect').addEventListener('click', async () => {
   } catch (error) {
     setTwitchMessage(error.message || 'No se pudo iniciar la conexión con Twitch.', 'error');
   } finally {
-    button.disabled = Boolean(latestTwitchState.connected) || !latestTwitchState.hasClientId || !latestTwitchState.hasClientSecret;
+    button.disabled = Boolean(latestTwitchState.connected) || !latestTwitchState.hasClientId || (!latestTwitchState.publicClient && !latestTwitchState.hasClientSecret);
   }
 });
 
@@ -1470,9 +1505,34 @@ $('#twitch-disconnect').addEventListener('click', async () => {
   try {
     const response = await postJson('/api/twitch/disconnect', {});
     renderTwitchStatus(response.twitch || {});
-    setTwitchMessage('Twitch desconectado. Las credenciales de desarrollador se conservaron.', 'success');
+    $('#twitch-device-flow-panel').hidden = true;
+    setTwitchMessage('Twitch desconectado. Puedes volver a conectarlo cuando quieras.', 'success');
   } catch (error) {
     setTwitchMessage(error.message || 'No se pudo desconectar Twitch.', 'error');
+  } finally {
+    button.disabled = false;
+  }
+});
+
+$('#twitch-copy-device-code').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText($('#twitch-device-code').textContent.trim());
+    setTwitchMessage('Código de autorización copiado.', 'success');
+  } catch {
+    setTwitchMessage('No se pudo copiar automáticamente. Selecciona el código y cópialo.', 'error');
+  }
+});
+
+$('#twitch-device-cancel').addEventListener('click', async () => {
+  const button = $('#twitch-device-cancel');
+  button.disabled = true;
+  try {
+    const response = await postJson('/api/twitch/device/cancel', {});
+    $('#twitch-device-flow-panel').hidden = true;
+    renderTwitchStatus(response.twitch || {});
+    setTwitchMessage('Autorización cancelada.', '');
+  } catch (error) {
+    setTwitchMessage(error.message || 'No se pudo cancelar la autorización.', 'error');
   } finally {
     button.disabled = false;
   }
