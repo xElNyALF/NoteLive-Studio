@@ -1,6 +1,6 @@
 # NoteLive Studio — aplicación de escritorio para Windows
 
-NoteLive Studio agrupa el overlay de Spotify, el chat de TikTok LIVE, el lector de comentarios con ElevenLabs y las URL de audio/overlay para OBS en una única aplicación de Windows. La aplicación se abre como una ventana normal; el servidor local funciona internamente y se detiene al cerrar el programa.
+NoteLive Studio reúne Spotify, Twitch, TikTok LIVE, el chat general multicanal, la voz de ElevenLabs y los overlays de OBS en una sola aplicación de Windows. La aplicación se abre como una ventana normal; el servidor local funciona internamente y se detiene al cerrar el programa.
 
 ## Para el usuario: generar el instalador de Windows
 
@@ -22,18 +22,18 @@ La configuración y las credenciales se guardan en la carpeta de datos de NoteLi
 
 ## Funciones
 
-- **v0.3.5:** integración de Twitch con OAuth, EventSub WebSocket para `channel.follow` y `channel.chat.message`, alerta de follow personalizable, overlay de chat separado para OBS y lectura opcional del chat mediante la fuente de ElevenLabs `/tts`. Requiere registrar una app de Twitch y añadir la URL de redirección `http://localhost:8787/twitch/callback`.
+- **v0.3.6:** chat general que reúne Twitch y TikTok LIVE, etiqueta cada mensaje con su plataforma, muestra los emotes de Twitch como imágenes y admite stickers de TikTok cuando el conector los entrega. Incluye una fuente de Navegador combinada para OBS en `http://127.0.0.1:8787/unified-chat-overlay` y filtros para ver todas las plataformas o solo una.\n- **v0.3.5:** integración de Twitch con OAuth, EventSub WebSocket para `channel.follow` y `channel.chat.message`, alerta de follow personalizable, overlay de chat separado para OBS y lectura opcional del chat mediante la fuente de ElevenLabs `/tts`. Requiere registrar una app de Twitch y añadir la URL de redirección `http://localhost:8787/twitch/callback`.
 
 
 - **v0.3.1:** editor de notificación musical (estilo, posición, duración, colores, opacidad y elementos visibles), visualizador FFT real del audio de Windows para OBS (barras, onda, espejo o círculo) y mini overlay de escritorio opcional. La captura se inicia manualmente; el audio no se graba y solo se envían niveles al servidor local.
 - **v0.3.4:** diez estilos seleccionables para la notificación musical (Original, Aesthetic, Rhythm Inside, Mini Capsule, Neon Pulse, Retro EQ, Orbit, Cyberpunk, Mono Clean y Always On). Puedes colocar el visualizador dentro de la tarjeta o debajo y elegir entre notificación temporal o reproductor permanente. En el modo permanente solo se anima el contenido al cambiar de canción; el panel no se oculta.
 
-- Interfaz reorganizada en navegación lateral: Inicio, Twitch (chat, follows y overlays), Spotify, TikTok LIVE, Voz IA, OBS y Personalizar.
+- Interfaz reorganizada en navegación lateral: Inicio, Chat general, Twitch (chat, follows y overlays), Spotify, TikTok LIVE, Voz IA, OBS y Personalizar.
 - Fondo personalizable de la interfaz: importa una imagen local, la aplicación optimiza su tamaño, y permite ajustar el desenfoque, oscurecimiento, opacidad de los paneles, posición del wallpaper y color de acento. Los ajustes se guardan en el almacenamiento local de la instalación.
 
 - Spotify Web API mediante OAuth Authorization Code + PKCE.
 - Overlay musical con portada, artista, título, progreso y animaciones, transparente para OBS.
-- Chat de TikTok LIVE con historial de comentarios.
+- Chat de TikTok LIVE con historial de comentarios y chat general multicanal que reúne Twitch y TikTok en NoteLive Studio y OBS.
 - Lector de comentarios mediante ElevenLabs, plantilla `{username} dice: {message}`, selector de voz, velocidad, límite de caracteres y antispam.
 - Página de audio transparente en `/tts` para la Browser Source de OBS.
 - Importación de configuración existente y almacenamiento separado de los archivos de instalación.
@@ -78,7 +78,7 @@ Las fuentes dejan de funcionar si cierras NoteLive Studio porque el servidor loc
 
 ## Personalizar el fondo y la interfaz
 
-Abre el apartado **Personalizar** desde la barra lateral derecha. Usa **Elegir imagen** para seleccionar el fondo de tu personaje, activa o desactiva el desenfoque y ajusta los deslizadores. La imagen se optimiza y se guarda localmente; no se sube a un servidor. La vista previa representa la interfaz de NoteLive Studio y no altera por sí sola la transparencia ni el diseño del overlay de OBS. El apartado de Twitch está reservado para una futura integración, todavía no se conecta a Twitch en esta versión.
+Abre el apartado **Personalizar** desde la barra lateral derecha. Usa **Elegir imagen** para seleccionar el fondo de tu personaje, activa o desactiva el desenfoque y ajusta los deslizadores. La imagen se optimiza y se guarda localmente; no se sube a un servidor. La vista previa representa la interfaz de NoteLive Studio y no altera por sí sola la transparencia ni el diseño del overlay de OBS. Los apartados de Twitch y TikTok LIVE comparten un chat general para supervisar ambos canales sin salir de NoteLive Studio.
 
 ## Compilar desde el código fuente
 
