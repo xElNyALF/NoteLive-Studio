@@ -1196,6 +1196,7 @@ if (!window.noteLiveDesktop || !window.noteLiveDesktop.isDesktopApp) {
 const twitchRenderedIds = new Set();
 const twitchMessage = $('#twitch-message');
 let latestTwitchState = {};
+let latestTwitchAlertMedia = { imageUrl: '', imageMimeType: '', imageFit: 'contain', soundUrl: '', soundMimeType: '', soundDurationSeconds: 0 };
 
 function setTwitchMessage(text, kind = '') {
   message(twitchMessage, text, kind);
@@ -1244,7 +1245,38 @@ function renderTwitchStatus(data = {}) {
 }
 
 function applyTwitchSettings(alertConfig = {}, chatConfig = {}, readChat = true) {
-  const alert = { enabled: true, style: 'card', durationSeconds: 7, accentColor: '#a970ff', title: '¡Nuevo follow!', message: '{username} ahora te sigue', soundEnabled: true, ...(alertConfig || {}) };
+  const alert = { enabled: true, style: 'card', durationSeconds: 7, accentColor: '#a970ff', title: '¡Nuevo follow!', message: '{username} ahora te sigue', soundEnabled: true, imageUrl: '', imageMimeType: '', imageFit: 'contain', soundUrl: '', soundMimeType: '', soundDurationSeconds: 0, ...(alertConfig || {}) };
+  latestTwitchAlertMedia = {
+    imageUrl: alert.imageUrl || '', imageMimeType: alert.imageMimeType || '',
+    imageFit: alert.imageFit === 'cover' ? 'cover' : 'contain',
+    soundUrl: alert.soundUrl || '', soundMimeType: alert.soundMimeType || '',
+    soundDurationSeconds: Number(alert.soundDurationSeconds) || 0
+  };
+  const imagePreview = $('#twitch-alert-image-preview-img');
+  const imageEmpty = $('#twitch-alert-image-empty');
+  if (imagePreview) {
+    imagePreview.hidden = !latestTwitchAlertMedia.imageUrl;
+    imagePreview.style.objectFit = latestTwitchAlertMedia.imageFit;
+    if (latestTwitchAlertMedia.imageUrl) imagePreview.src = latestTwitchAlertMedia.imageUrl;
+    else imagePreview.removeAttribute('src');
+  }
+  if (imageEmpty) imageEmpty.hidden = Boolean(latestTwitchAlertMedia.imageUrl);
+  const imageRemove = $('#twitch-alert-image-remove');
+  if (imageRemove) imageRemove.hidden = !latestTwitchAlertMedia.imageUrl;
+  const fitControl = $('#twitch-alert-image-fit');
+  if (fitControl && document.activeElement !== fitControl) fitControl.value = latestTwitchAlertMedia.imageFit;
+  const soundPreview = $('#twitch-alert-sound-preview');
+  const soundStatus = $('#twitch-alert-sound-status');
+  if (soundPreview) {
+    soundPreview.hidden = !latestTwitchAlertMedia.soundUrl;
+    if (latestTwitchAlertMedia.soundUrl) soundPreview.src = latestTwitchAlertMedia.soundUrl;
+    else { soundPreview.pause(); soundPreview.removeAttribute('src'); soundPreview.load(); }
+  }
+  if (soundStatus) soundStatus.textContent = latestTwitchAlertMedia.soundUrl
+    ? 'Sonido personalizado guardado · ' + latestTwitchAlertMedia.soundDurationSeconds + ' s'
+    : 'Sonido integrado de NoteLive Studio';
+  const soundRemove = $('#twitch-alert-sound-remove');
+  if (soundRemove) soundRemove.hidden = !latestTwitchAlertMedia.soundUrl;
   const chat = { enabled: true, accentColor: '#a970ff', backgroundOpacity: 82, maxMessages: 6, fontSize: 17, showTimestamp: false, compact: false, ...(chatConfig || {}) };
   const assign = (id, value) => {
     const control = $('#' + id);
@@ -1279,7 +1311,13 @@ function readTwitchAlertConfig() {
     accentColor: $('#twitch-alert-color').value,
     durationSeconds: Number($('#twitch-alert-duration').value),
     title: $('#twitch-alert-title').value,
-    message: $('#twitch-alert-message').value
+    message: $('#twitch-alert-message').value,
+    imageUrl: latestTwitchAlertMedia.imageUrl,
+    imageMimeType: latestTwitchAlertMedia.imageMimeType,
+    imageFit: $('#twitch-alert-image-fit')?.value || latestTwitchAlertMedia.imageFit,
+    soundUrl: latestTwitchAlertMedia.soundUrl,
+    soundMimeType: latestTwitchAlertMedia.soundMimeType,
+    soundDurationSeconds: latestTwitchAlertMedia.soundDurationSeconds
   };
 }
 
@@ -1451,7 +1489,10 @@ async function saveTwitchWithMessage(text) {
     if (button) button.disabled = false;
   }
 }
-$('#twitch-save-alerts').addEventListener('click', () => saveTwitchWithMessage('Alerta de follow guardada.'));
+$('#twitch-save-alerts').addEventListener('click', async () => {
+  try { await saveTwitchSettings('Alerta de follow guardada.'); setTwitchAlertMediaMessage('Diseño de alerta guardado.', 'success'); }
+  catch (error) { setTwitchAlertMediaMessage(error.message || 'No se pudo guardar la alerta.', 'error'); }
+});
 $('#twitch-save-chat').addEventListener('click', () => saveTwitchWithMessage('Ajustes de chat y lectura guardados.'));
 
 $('#twitch-test-follow').addEventListener('click', async () => {
@@ -1464,7 +1505,97 @@ $('#twitch-test-follow').addEventListener('click', async () => {
   }
 });
 
-$('#twitch-preview-alert').addEventListener('click', () => window.open('/twitch-overlay?preview=1', '_blank'));
+
+
+function setTwitchAlertMediaMessage(text, kind = '') { message($('#twitch-alert-media-message'), text, kind); }
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('No se pudo leer el archivo.'));
+    reader.onerror = () => reject(new Error('No se pudo leer el archivo.'));
+    reader.readAsDataURL(file);
+  });
+}
+function readAudioDuration(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const audio = document.createElement('audio');
+    audio.preload = 'metadata';
+    const cleanup = () => { URL.revokeObjectURL(url); audio.removeAttribute('src'); audio.load(); };
+    audio.onloadedmetadata = () => {
+      const duration = Number(audio.duration); cleanup();
+      if (!Number.isFinite(duration) || duration <= 0) reject(new Error('No se pudo comprobar la duración. Prueba con un MP3 o WAV normal.'));
+      else resolve(duration);
+    };
+    audio.onerror = () => { cleanup(); reject(new Error('El navegador no pudo leer ese audio. Prueba con MP3, WAV u OGG.')); };
+    audio.src = url;
+  });
+}
+async function uploadTwitchAlertMedia(file, mediaType) {
+  if (!file) return;
+  const isImage = mediaType === 'image';
+  const maxBytes = (isImage ? 10 : 5) * 1024 * 1024;
+  const supportedImageTypes = ['image/png','image/jpeg','image/webp','image/gif','image/avif'];
+  const supportedAudioTypes = ['audio/mpeg','audio/mp3','audio/wav','audio/x-wav','audio/ogg','audio/mp4','audio/aac','audio/webm','audio/flac'];
+  const supported = isImage ? supportedImageTypes : supportedAudioTypes;
+  if (file.size > maxBytes) throw new Error(isImage ? 'La imagen/GIF debe pesar 10 MB o menos.' : 'El sonido debe pesar 5 MB o menos.');
+  if (!supported.includes(String(file.type || '').toLowerCase())) {
+    throw new Error(isImage ? 'Formato no compatible. Usa PNG, JPG, WebP, AVIF o GIF.' : 'Formato no compatible. Usa MP3, WAV, OGG, M4A/MP4, AAC, WebM o FLAC.');
+  }
+  let durationSeconds = 0;
+  if (!isImage) {
+    durationSeconds = await readAudioDuration(file);
+    if (durationSeconds > 10.05) throw new Error('El sonido debe durar 10 segundos o menos.');
+  }
+  const payload = { mediaType, mimeType: file.type.toLowerCase(), dataUrl: await readFileAsDataUrl(file) };
+  if (!isImage) payload.durationSeconds = durationSeconds;
+  const result = await postJson('/api/twitch/alert-media', payload);
+  applyTwitchSettings(result.alertConfig || {}, latestTwitchState.chatConfig || {}, latestTwitchState.readChat !== false);
+  setTwitchAlertMediaMessage(isImage ? 'Imagen/GIF guardado. El GIF conserva su animación.' : 'Sonido guardado correctamente.', 'success');
+}
+async function removeTwitchAlertMedia(mediaType) {
+  try {
+    const result = await postJson('/api/twitch/alert-media', { mediaType, remove: true });
+    applyTwitchSettings(result.alertConfig || {}, latestTwitchState.chatConfig || {}, latestTwitchState.readChat !== false);
+    setTwitchAlertMediaMessage(mediaType === 'image' ? 'Imagen quitada.' : 'Sonido quitado; se usará el sonido integrado.', 'success');
+  } catch (error) { setTwitchAlertMediaMessage(error.message || 'No se pudo quitar el archivo.', 'error'); }
+}
+$('#twitch-alert-image-choose').addEventListener('click', () => $('#twitch-alert-image-file').click());
+$('#twitch-alert-image-file').addEventListener('change', async event => {
+  const input = event.currentTarget;
+  try { if (!input.files?.[0]) return; setTwitchAlertMediaMessage('Guardando imagen/GIF…'); await uploadTwitchAlertMedia(input.files[0], 'image'); }
+  catch (error) { setTwitchAlertMediaMessage(error.message || 'No se pudo guardar la imagen/GIF.', 'error'); }
+  finally { input.value = ''; }
+});
+$('#twitch-alert-image-remove').addEventListener('click', () => removeTwitchAlertMedia('image'));
+$('#twitch-alert-image-fit').addEventListener('change', () => {
+  latestTwitchAlertMedia.imageFit = $('#twitch-alert-image-fit').value;
+  const preview = $('#twitch-alert-image-preview-img');
+  if (preview) preview.style.objectFit = latestTwitchAlertMedia.imageFit;
+});
+$('#twitch-alert-sound-choose').addEventListener('click', () => $('#twitch-alert-sound-file').click());
+$('#twitch-alert-sound-file').addEventListener('change', async event => {
+  const input = event.currentTarget;
+  try { if (!input.files?.[0]) return; setTwitchAlertMediaMessage('Comprobando y guardando sonido…'); await uploadTwitchAlertMedia(input.files[0], 'audio'); }
+  catch (error) { setTwitchAlertMediaMessage(error.message || 'No se pudo guardar el sonido.', 'error'); }
+  finally { input.value = ''; }
+});
+$('#twitch-alert-sound-remove').addEventListener('click', () => removeTwitchAlertMedia('audio'));
+$('#twitch-alert-sound-test').addEventListener('click', async () => {
+  if (!latestTwitchAlertMedia.soundUrl) {
+    try { await saveTwitchSettings('Configuración guardada.'); await postJson('/api/twitch/test-follow', { username: 'NoukanTest' }); }
+    catch (error) { setTwitchAlertMediaMessage(error.message || 'No se pudo probar el sonido.', 'error'); }
+    return;
+  }
+  const audio = $('#twitch-alert-sound-preview');
+  try { audio.currentTime = 0; await audio.play(); setTwitchAlertMediaMessage('Reproduciendo el sonido personalizado.', 'success'); }
+  catch { setTwitchAlertMediaMessage('El navegador bloqueó la reproducción. Prueba la alerta desde OBS.', 'error'); }
+});
+
+$('#twitch-preview-alert').addEventListener('click', async () => {
+  try { await saveTwitchSettings('Configuración guardada. Abriendo vista previa…'); window.open('/twitch-overlay?preview=1', '_blank', 'noopener'); }
+  catch (error) { setTwitchAlertMediaMessage(error.message || 'No se pudo abrir la vista previa.', 'error'); }
+});
 $('#twitch-preview-chat').addEventListener('click', () => window.open('/twitch-chat-overlay?preview=1', '_blank'));
 $('#twitch-copy-redirect').addEventListener('click', () => copyTwitchValue('twitch-redirect-uri'));
 $('#twitch-copy-alert-url').addEventListener('click', () => copyTwitchValue('twitch-alert-url'));
