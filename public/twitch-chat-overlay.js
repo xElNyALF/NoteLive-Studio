@@ -84,3 +84,13 @@ events.addEventListener('message', event => {
   } catch {}
 });
 events.onerror = () => {};
+
+if (new URLSearchParams(window.location.search).get('preview') === '1') {
+  window.addEventListener('DOMContentLoaded', () => {
+    if (!list.children.length) {
+      addMessage({ id: 'preview-1', username: 'NoukanViewer', comment: '¡Ese overlay se ve increíble!', timestamp: Date.now(), isModerator: true });
+      addMessage({ id: 'preview-2', username: 'Moonlight', comment: 'Saludos desde el chat 💜', timestamp: Date.now(), isSubscriber: true });
+      addMessage({ id: 'preview-3', username: 'Mika', comment: '¿Qué juego toca hoy?', timestamp: Date.now() });
+    }
+  }, { once: true });
+}
