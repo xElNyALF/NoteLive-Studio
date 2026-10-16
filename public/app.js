@@ -655,13 +655,17 @@ switchStudioView(lastView);
 
 // Music notification designer + real local system-audio analysis.
 const musicDefaultConfig = {
-  notificationEnabled: true, durationSeconds: 8, style: 'vinyl', position: 'top-left',
+  notificationEnabled: true, preset: 'classic', notificationMode: 'timed', visualizerPlacement: 'separate',
+  durationSeconds: 8, style: 'vinyl', position: 'top-left',
   accentColor: '#1ed760', cardOpacity: 92, showCover: true, showArtist: true, showProgress: true,
   visualizerEnabled: true, visualizerStyle: 'bars', visualizerColor: '#ff6b9a',
   visualizerSensitivity: 1.2, visualizerHeight: 34
 };
 const musicControlIds = {
   notificationEnabled: 'music-notification-enabled',
+  preset: 'music-preset-id',
+  notificationMode: 'music-notification-mode',
+  visualizerPlacement: 'music-visualizer-placement',
   durationSeconds: 'music-notification-duration',
   style: 'music-notification-style',
   position: 'music-notification-position',
@@ -686,6 +690,88 @@ let audioPostInFlight = false;
 let pendingAudioFrame = null;
 let activeAudioCapture = false;
 
+
+const musicPresets = Object.freeze({
+  classic: {
+    name: 'Original', style: 'vinyl', notificationMode: 'timed', visualizerPlacement: 'separate',
+    accentColor: '#1ed760', visualizerColor: '#ff6b9a', visualizerStyle: 'bars', cardOpacity: 92,
+    visualizerHeight: 34, visualizerSensitivity: 1.2, showCover: true, showArtist: true, showProgress: true
+  },
+  aesthetic: {
+    name: 'Aesthetic', style: 'glass', notificationMode: 'timed', visualizerPlacement: 'separate',
+    accentColor: '#dba8ff', visualizerColor: '#a8a4ff', visualizerStyle: 'wave', cardOpacity: 78,
+    visualizerHeight: 28, visualizerSensitivity: 1, showCover: true, showArtist: true, showProgress: true
+  },
+  spectrum: {
+    name: 'Rhythm Inside', style: 'glass', notificationMode: 'timed', visualizerPlacement: 'inside',
+    accentColor: '#72f4e8', visualizerColor: '#9efff5', visualizerStyle: 'bars', cardOpacity: 90,
+    visualizerHeight: 24, visualizerSensitivity: 1.25, showCover: true, showArtist: true, showProgress: false
+  },
+  mini: {
+    name: 'Mini Capsule', style: 'minimal', notificationMode: 'timed', visualizerPlacement: 'inside',
+    accentColor: '#f2f2f7', visualizerColor: '#f7f7ff', visualizerStyle: 'bars', cardOpacity: 96,
+    visualizerHeight: 20, visualizerSensitivity: 1, showCover: true, showArtist: true, showProgress: false
+  },
+  neon: {
+    name: 'Neon Pulse', style: 'glass', notificationMode: 'timed', visualizerPlacement: 'separate',
+    accentColor: '#ff5bba', visualizerColor: '#ff63c5', visualizerStyle: 'bars', cardOpacity: 94,
+    visualizerHeight: 42, visualizerSensitivity: 1.5, showCover: true, showArtist: true, showProgress: true
+  },
+  retro: {
+    name: 'Retro EQ', style: 'minimal', notificationMode: 'timed', visualizerPlacement: 'inside',
+    accentColor: '#ffbe55', visualizerColor: '#ffcc73', visualizerStyle: 'mirror', cardOpacity: 96,
+    visualizerHeight: 28, visualizerSensitivity: 1.15, showCover: true, showArtist: true, showProgress: true
+  },
+  orbit: {
+    name: 'Orbit', style: 'vinyl', notificationMode: 'timed', visualizerPlacement: 'inside',
+    accentColor: '#b89bff', visualizerColor: '#c9b7ff', visualizerStyle: 'circle', cardOpacity: 91,
+    visualizerHeight: 38, visualizerSensitivity: 1.3, showCover: true, showArtist: true, showProgress: false
+  },
+  cyberpunk: {
+    name: 'Cyberpunk', style: 'glass', notificationMode: 'timed', visualizerPlacement: 'separate',
+    accentColor: '#ff38a8', visualizerColor: '#ff4eb8', visualizerStyle: 'wave', cardOpacity: 93,
+    visualizerHeight: 36, visualizerSensitivity: 1.7, showCover: true, showArtist: true, showProgress: true
+  },
+  mono: {
+    name: 'Mono Clean', style: 'minimal', notificationMode: 'timed', visualizerPlacement: 'separate',
+    accentColor: '#e9edf4', visualizerColor: '#f5f7ff', visualizerStyle: 'mirror', cardOpacity: 94,
+    visualizerHeight: 24, visualizerSensitivity: 1, showCover: true, showArtist: true, showProgress: false
+  },
+  'always-on': {
+    name: 'Always On', style: 'glass', notificationMode: 'persistent', visualizerPlacement: 'inside',
+    accentColor: '#bda0ff', visualizerColor: '#cbb6ff', visualizerStyle: 'mirror', cardOpacity: 90,
+    visualizerHeight: 30, visualizerSensitivity: 1.35, showCover: true, showArtist: true, showProgress: true
+  }
+});
+let applyingMusicPreset = false;
+
+function updateMusicPresetSelection(presetId) {
+  document.querySelectorAll('[data-music-preset]').forEach(button => {
+    const selected = button.dataset.musicPreset === presetId;
+    button.classList.toggle('is-selected', selected);
+    button.setAttribute('aria-pressed', String(selected));
+  });
+}
+
+async function applyMusicPreset(presetId) {
+  const preset = musicPresets[presetId];
+  if (!preset) return;
+  applyingMusicPreset = true;
+  musicControl('music-preset-id').value = presetId;
+  applyMusicDesignControls({ ...musicDefaultConfig, ...preset, preset: presetId });
+  updateMusicPresetSelection(presetId);
+  try {
+    const result = await postJson('/api/overlay/config', readMusicDesignControls());
+    applyMusicDesignControls(result.config || {});
+    updateMusicPresetSelection(presetId);
+    setMusicDesignMessage('Estilo "' + preset.name + '" aplicado y guardado.', 'success');
+  } catch (error) {
+    setMusicDesignMessage(error.message || 'No se pudo aplicar el estilo.', 'error');
+  } finally {
+    applyingMusicPreset = false;
+  }
+}
+
 function musicControl(id) {
   return document.getElementById(id);
 }
@@ -706,6 +792,7 @@ function applyMusicDesignControls(config) {
     else control.value = String(values[key]);
   }
   updateMusicValueLabels();
+  updateMusicPresetSelection(values.preset || 'classic');
 }
 
 function readMusicDesignControls() {
@@ -868,6 +955,23 @@ async function startSystemAudioVisualizer() {
     updateAudioCaptureUI(activeAudioCapture);
   }
 }
+
+document.querySelectorAll('[data-music-preset]').forEach(button => {
+  button.addEventListener('click', () => applyMusicPreset(button.dataset.musicPreset));
+});
+
+Object.entries(musicControlIds).forEach(([key, id]) => {
+  if (key === 'preset') return;
+  const control = musicControl(id);
+  if (!control) return;
+  const markCustom = () => {
+    if (applyingMusicPreset) return;
+    musicControl('music-preset-id').value = 'custom';
+    updateMusicPresetSelection('custom');
+  };
+  control.addEventListener('input', markCustom);
+  control.addEventListener('change', markCustom);
+});
 
 musicControl('music-save-design').addEventListener('click', async () => {
   const button = musicControl('music-save-design');
