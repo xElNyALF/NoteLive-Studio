@@ -455,7 +455,7 @@ function handleTikTokEmote(data) {
   const username = cleanText(user.nickname || user.uniqueId || data && (data.nickname || data.uniqueId) || 'Usuario', 64) || 'Usuario';
   const url = trustedTikTokEmoteUrl(data && (data.emoteImageUrl || data.imageUrl) || data && data.emoteList && data.emoteList[0] && (data.emoteList[0].emoteImageUrl || data.emoteList[0].imageUrl));
   const entry = {
-    id: String(data && (data.msgId || data.messageId || data.emoteId) || crypto.randomUUID()),
+    id: String(data && (data.msgId || data.messageId) || crypto.randomUUID()),
     username,
     comment: url ? '' : 'Envió un sticker',
     platform: 'tiktok',
