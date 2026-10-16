@@ -90,3 +90,8 @@ body[data-compact="true"] .chat-message { padding: 7px 9px; gap: 7px; }
 body[data-compact="true"] .chat-avatar { width: 28px; height: 28px; }
 body[data-compact="true"] .chat-message:not(.no-avatar) { grid-template-columns: 28px minmax(0,1fr); }
 body[data-compact="true"] .message-body { line-height: 1.3; }
+
+.source-badge { gap:5px; }
+.source-platform-icon { display:block; width:12px; height:12px; flex:0 0 12px; overflow:visible; }
+.source-platform-icon-tiktok { fill:currentColor; stroke:none; }
+.source-platform-icon-twitch { fill:none; stroke:currentColor; stroke-linecap:round; }
