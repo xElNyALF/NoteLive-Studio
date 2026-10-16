@@ -3,9 +3,12 @@
 const banner = document.querySelector('#follow-alert');
 const titleNode = document.querySelector('#alert-title');
 const messageNode = document.querySelector('#alert-message');
+const iconNode = document.querySelector('#alert-icon');
+const imageNode = document.querySelector('#alert-image');
 let alertConfig = {
   enabled: true, style: 'card', durationSeconds: 7, accentColor: '#a970ff',
-  title: '¡Nuevo follow!', message: '{username} ahora te sigue', soundEnabled: true
+  title: '¡Nuevo follow!', message: '{username} ahora te sigue', soundEnabled: true,
+  imageUrl: '', imageFit: 'contain', soundUrl: ''
 };
 let hideTimer = null;
 let currentAudioContext = null;
@@ -14,10 +17,28 @@ function applyConfig(config) {
   alertConfig = { ...alertConfig, ...(config || {}) };
   banner.dataset.style = alertConfig.style || 'card';
   banner.style.setProperty('--twitch-accent', alertConfig.accentColor || '#a970ff');
+  const imageUrl = alertConfig.imageUrl === '/twitch-alert-media/image' ? alertConfig.imageUrl : '';
+  imageNode.hidden = !imageUrl;
+  iconNode.hidden = Boolean(imageUrl);
+  if (imageUrl && imageNode.getAttribute('src') !== imageUrl) imageNode.src = imageUrl;
+  else if (!imageUrl) imageNode.removeAttribute('src');
+  imageNode.style.objectFit = alertConfig.imageFit === 'cover' ? 'cover' : 'contain';
 }
 
 function playAlertSound() {
   if (!alertConfig.soundEnabled) return;
+  const soundUrl = alertConfig.soundUrl === '/twitch-alert-media/audio' ? alertConfig.soundUrl : '';
+  if (soundUrl) {
+    const customAudio = new Audio(soundUrl);
+    customAudio.preload = 'auto';
+    customAudio.volume = 1;
+    customAudio.play().catch(() => playBuiltInAlertSound());
+    return;
+  }
+  playBuiltInAlertSound();
+}
+
+function playBuiltInAlertSound() {
   try {
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
     if (!AudioContextClass) return;

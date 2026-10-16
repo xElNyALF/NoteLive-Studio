@@ -9,7 +9,7 @@ El ZIP contiene el código fuente y los scripts de compilación, no un instalado
 1. Instala Node.js 22.12 o posterior desde https://nodejs.org/ si no lo tienes.
 2. Descomprime la carpeta `notelive-studio` en una ubicación local, no dentro de una carpeta temporal.
 3. Ejecuta `BUILD-WINDOWS.bat` y espera a que termine la instalación de dependencias y la compilación. Requiere conexión a Internet la primera vez.
-4. El instalador aparecerá en `dist\NoteLive-Studio-Setup-0.3.8.exe`.
+4. El instalador aparecerá en `dist\NoteLive-Studio-Setup-0.3.9.exe`.
 5. Ejecuta el instalador y abre NoteLive Studio desde el acceso directo del escritorio o el menú Inicio. El programa instalado no necesita que abras la terminal ni que ejecutes `start.bat`.
 
 `start.bat` es para ejecutar el código fuente en modo desarrollo; no es el modo recomendado una vez instalado el programa.
@@ -22,6 +22,7 @@ La configuración y las credenciales se guardan en la carpeta de datos de NoteLi
 
 ## Funciones
 
+- **v0.3.9:** la alerta de nuevo seguidor tiene diez estilos, admite imagen/GIF de hasta 10 MB, permite ajustar la imagen para que quepa o recortarla visualmente, y admite sonido personalizado de hasta 5 MB y 10 segundos. Los archivos se guardan en el perfil local de la aplicación y se sirven desde el overlay local de OBS.
 - **v0.3.8:** el chat general y el overlay de OBS muestran un icono junto a la etiqueta TWITCH/TIKTOK LIVE para identificar el origen de cada mensaje. El actualizador tiene una barra de progreso integrada y muestra “Listo, reinicia para instalar” con un botón de reinicio. Se añade una sección informativa de Kick marcada como “Próximamente”; no implica que Kick ya esté conectado.
 - **v0.3.7:** personalización del chat general con ocho tipografías, tamaño y colores de texto, opacidad, número de mensajes y controles para ocultar avatares, insignias, etiquetas y hora. Muestra avatares circulares de Twitch/TikTok, iconos de streamer, moderador, VIP, suscriptor y etiqueta `TÚ`. Añade el comando de voz `!voice` para leer una frase elegida con ElevenLabs y una opción para permitir moderadores.
 - **v0.3.6:** chat general que reúne Twitch y TikTok LIVE, etiqueta cada mensaje con su plataforma, muestra los emotes de Twitch como imágenes y admite stickers de TikTok cuando el conector los entrega. Incluye una fuente de Navegador combinada para OBS en `http://127.0.0.1:8787/unified-chat-overlay` y filtros para ver todas las plataformas o solo una.
