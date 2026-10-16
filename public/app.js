@@ -142,7 +142,7 @@ function makeChatAvatar(item, className = '') {
 function appendUnifiedRoleBadges(container, item) {
   if (!unifiedChatConfig.showBadges) return;
   const roles = [];
-  if (item.isSelf) roles.push(['you', 'YOU', 'Tu propia cuenta']);
+  if (item.isSelf) roles.push(['you', 'TÚ', 'Tu propia cuenta']);
   if (item.isBroadcaster) roles.push(['broadcaster', '👑', 'Streamer']);
   if (item.isModerator) roles.push(['moderator', '🛡', 'Moderador']);
   if (item.isVip) roles.push(['vip', '💎', 'VIP']);
