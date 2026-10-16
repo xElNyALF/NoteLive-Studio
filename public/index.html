@@ -41,7 +41,7 @@
 <div class="intro-copy">
 <p class="eyebrow green">SPOTIFY · TIKTOK LIVE · OBS</p>
 <h2>Tu directo,<br/><span>desde un solo lugar.</span></h2>
-<p class="muted">Controla Spotify, el chat de TikTok LIVE, la voz de IA y tus overlays desde un solo centro de control.</p>
+<p class="muted">Controla Spotify, el chat general de TikTok LIVE y Twitch, la voz de IA y tus overlays desde un solo centro de control.</p>
 </div>
 <div aria-hidden="true" class="mini-preview">
 <div class="mini-cover"><span>♪</span></div>
@@ -268,6 +268,34 @@
 </section>
         </section>
 
+        <section class="page-view" id="page-chat" data-view="chat">
+          <div class="page-intro-card platform-intro unified-chat-intro">
+            <div class="platform-large-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-5 4v-4.5A2.5 2.5 0 0 1 3 13V5.5Z"/><path d="M7.5 8.5h9m-9 3h6"/></svg></div>
+            <div><p class="eyebrow">MULTI-PLATFORM / LIVE CHAT</p><h3>Chat general</h3><p class="muted">Twitch y TikTok LIVE juntos, con la etiqueta de origen y sus emotes.</p></div>
+          </div>
+          <section class="panel unified-chat-panel">
+            <div class="section-heading"><div class="step-number">01</div><div><h3>Todos los mensajes en un solo lugar</h3><p class="muted">Conecta cada plataforma desde su apartado. Aquí se mezclan los mensajes por hora de llegada.</p></div></div>
+            <div class="unified-platform-status">
+              <span class="unified-status-chip" id="unified-tiktok-status"><i></i> TikTok · desconectado</span>
+              <span class="unified-status-chip" id="unified-twitch-status"><i></i> Twitch · desconectado</span>
+            </div>
+            <div class="unified-chat-toolbar">
+              <div class="unified-chat-filters" role="group" aria-label="Filtrar mensajes por plataforma">
+                <button class="unified-filter is-active" type="button" data-chat-filter="all" aria-pressed="true">Todos</button>
+                <button class="unified-filter" type="button" data-chat-filter="twitch" aria-pressed="false">Twitch</button>
+                <button class="unified-filter" type="button" data-chat-filter="tiktok" aria-pressed="false">TikTok LIVE</button>
+              </div>
+              <span class="chat-count" id="unified-chat-count">0 mensajes</span>
+            </div>
+            <div aria-live="polite" class="chat-feed unified-chat-feed" id="unified-chat-feed"><div class="empty-chat">Conecta Twitch o TikTok LIVE para ver los mensajes aquí.</div></div>
+          </section>
+          <section class="panel unified-overlay-panel">
+            <div class="section-heading"><div class="step-number">02</div><div><h3>Mostrar chat general en OBS</h3><p class="muted">Añade una fuente de Navegador para mostrar los mensajes de ambas plataformas en tu directo.</p></div></div>
+            <div class="url-copy-row unified-overlay-url"><div><span class="tiny-label">FUENTE DE NAVEGADOR · CHAT MULTICANAL</span><code id="unified-chat-url">http://127.0.0.1:8787/unified-chat-overlay</code><small>OBS · recomendado: 520 × 760 px · fondo transparente</small></div><div class="button-row"><button class="button button-secondary" id="unified-chat-copy-url" type="button">Copiar URL</button><button class="button button-primary" id="unified-chat-preview" type="button">Vista previa ↗</button></div></div>
+            <p class="field-hint">Los emotes nativos de Twitch se muestran como imágenes. Los emojis escritos y stickers/emotes recibidos de TikTok se conservan cuando el conector entrega sus datos.</p>
+          </section>
+        </section>
+
         <section class="page-view" id="page-voice" data-view="voice">
           <div class="page-intro-card platform-intro voice-platform-intro"><div class="platform-large-icon"><svg viewBox="0 0 24 24"><path d="M3 10v4m4-8v12m4-15v18m4-12v6m4-9v12m3-8v4"/></svg></div><div><p class="eyebrow">TEXT TO SPEECH</p><h3>Voz de IA</h3><p class="muted">Personaliza cómo suenan los mensajes del chat y administra tu integración con ElevenLabs.</p></div></div>
           <section class="panel voice-panel">
@@ -445,6 +473,7 @@
       <div class="rail-label">STUDIO</div>
       <nav class="rail-nav">
         <button class="rail-item active" type="button" data-view-target="home" title="Inicio"><span class="rail-icon"><svg viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg></span><span>Inicio</span></button>
+        <button class="rail-item" type="button" data-view-target="chat" title="Chat general"><span class="rail-icon unified-chat-rail"><svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-5 4v-4.5A2.5 2.5 0 0 1 3 13V5.5Z"/><path d="M7.5 8.5h9m-9 3h6"/></svg></span><span>Chat</span></button>
         <button class="rail-item" type="button" data-view-target="twitch" title="Twitch"><span class="rail-icon twitch-rail"><svg viewBox="0 0 24 24"><path d="M5 3h16v12l-5 5h-4l-3 2v-2H5z"/><path d="M10 7v6m5-6v6"/></svg></span><span>Twitch</span></button>
         <button class="rail-item" type="button" data-view-target="spotify" title="Spotify"><span class="rail-icon spotify-rail"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M7 10c3.5-1 7.2-.5 10 1.2M8 13c2.8-.7 5.8-.3 8.2 1.2M9 16c2-.4 4-.1 5.8 1"/></svg></span><span>Spotify</span></button>
         <button class="rail-item" type="button" data-view-target="tiktok" title="TikTok LIVE"><span class="rail-icon tiktok-rail"><svg viewBox="0 0 24 24"><path d="M14 4v10.2a4.2 4.2 0 1 1-3-4V7.4c1.1 1.9 2.6 3 5 3.3V7.6C14.4 7 14 5.9 14 4Z"/></svg></span><span>TikTok</span></button>
