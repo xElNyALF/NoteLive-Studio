@@ -22,6 +22,9 @@ La configuración y las credenciales se guardan en la carpeta de datos de NoteLi
 
 ## Funciones
 
+- **v0.3.5:** integración de Twitch con OAuth, EventSub WebSocket para `channel.follow` y `channel.chat.message`, alerta de follow personalizable, overlay de chat separado para OBS y lectura opcional del chat mediante la fuente de ElevenLabs `/tts`. Requiere registrar una app de Twitch y añadir la URL de redirección `http://localhost:8787/twitch/callback`.
+
+
 - **v0.3.1:** editor de notificación musical (estilo, posición, duración, colores, opacidad y elementos visibles), visualizador FFT real del audio de Windows para OBS (barras, onda, espejo o círculo) y mini overlay de escritorio opcional. La captura se inicia manualmente; el audio no se graba y solo se envían niveles al servidor local.
 - **v0.3.4:** diez estilos seleccionables para la notificación musical (Original, Aesthetic, Rhythm Inside, Mini Capsule, Neon Pulse, Retro EQ, Orbit, Cyberpunk, Mono Clean y Always On). Puedes colocar el visualizador dentro de la tarjeta o debajo y elegir entre notificación temporal o reproductor permanente. En el modo permanente solo se anima el contenido al cambiar de canción; el panel no se oculta.
 
