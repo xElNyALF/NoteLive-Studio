@@ -8,5 +8,6 @@ contextBridge.exposeInMainWorld('noteLiveDesktop', Object.freeze({
   isDesktopApp: true,
   version: '0.3.4',
   toggleFloatingOverlay: () => ipcRenderer.invoke('notelive:toggle-floating-overlay'),
-  closeFloatingOverlay: () => ipcRenderer.send('notelive:close-floating-overlay')
+  closeFloatingOverlay: () => ipcRenderer.send('notelive:close-floating-overlay'),
+  openTwitchLogin: () => ipcRenderer.invoke('notelive:open-twitch-login')
 }));
