@@ -165,8 +165,13 @@ function applyState(state) {
   isPlayingNow = isPlaying;
   banner.classList.toggle('is-paused', !isPlaying);
 
-  if (overlayConfig.notificationEnabled && isPlaying && (trackChanged || justResumed || firstActiveTrack || repeatedTrackRestart)) showBanner();
-  else if (!overlayConfig.notificationEnabled || (!track && !isPlaying)) hideBannerSoon();
+  const songEvent = isPlaying && (trackChanged || justResumed || firstActiveTrack || repeatedTrackRestart);
+  if (overlayConfig.notificationEnabled && songEvent) {
+    if (overlayConfig.notificationMode === 'persistent' && banner.classList.contains('is-visible')) animateTrackChange();
+    else showBanner();
+  } else if (!overlayConfig.notificationEnabled) hideBannerSoon(0);
+  else if (!track && !isPlaying && overlayConfig.notificationMode !== 'persistent') hideBannerSoon();
+  else if (overlayConfig.notificationMode === 'persistent' && track && !banner.classList.contains('is-visible')) showBanner();
 
   if (key) lastTrackKey = key;
   if (state.playback_timestamp) lastPlaybackTimestamp = state.playback_timestamp;
@@ -193,12 +198,19 @@ function hexToRgb(hex) {
 function applyOverlayConfig(config) {
   overlayConfig = { ...overlayConfig, ...(config || {}) };
   stage.dataset.position = overlayConfig.position || 'top-left';
+  stage.dataset.preset = overlayConfig.preset || 'classic';
+  banner.dataset.preset = overlayConfig.preset || 'classic';
+  banner.dataset.visualizerPlacement = overlayConfig.visualizerPlacement || 'separate';
+  banner.classList.toggle('is-persistent', overlayConfig.notificationMode === 'persistent');
   banner.dataset.style = overlayConfig.style || 'vinyl';
   banner.style.setProperty('--green', overlayConfig.accentColor || '#1ed760');
   banner.style.setProperty('--green-rgb', hexToRgb(overlayConfig.accentColor || '#1ed760'));
   banner.style.setProperty('--card-opacity', String(Math.max(40, Math.min(100, Number(overlayConfig.cardOpacity) || 92)) / 100));
   visualizerPanel.style.setProperty('--visualizer-color', overlayConfig.visualizerColor || '#ff6b9a');
   visualizerPanel.style.setProperty('--visualizer-rgb', hexToRgb(overlayConfig.visualizerColor || '#ff6b9a'));
+  banner.style.setProperty('--visualizer-color', overlayConfig.visualizerColor || '#ff6b9a');
+  banner.style.setProperty('--visualizer-rgb', hexToRgb(overlayConfig.visualizerColor || '#ff6b9a'));
+  banner.style.setProperty('--visualizer-height', (Number(overlayConfig.visualizerHeight) || 34) + 'px');
   visualizerPanel.style.setProperty('--visualizer-height', (Number(overlayConfig.visualizerHeight) || 34) + 'px');
   banner.classList.toggle('hide-cover', overlayConfig.showCover === false);
   banner.classList.toggle('hide-artist', overlayConfig.showArtist === false);
@@ -206,6 +218,9 @@ function applyOverlayConfig(config) {
   if (!overlayConfig.notificationEnabled) {
     clearTimeout(hideTimer);
     beginBannerExit();
+  } else if (overlayConfig.notificationMode === 'persistent') {
+    clearTimeout(hideTimer);
+    if (currentTrack && (!banner.classList.contains('is-visible') || banner.classList.contains('is-leaving'))) showBanner();
   }
   drawAudioVisualizer();
 }
