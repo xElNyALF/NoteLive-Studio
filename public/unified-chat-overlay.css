@@ -1,0 +1,42 @@
+:root {
+  color-scheme: dark;
+  --twitch: #b58aff;
+  --tiktok: #50e5c1;
+  --text: #f3f5fa;
+  --muted: #9ca7b6;
+  font-family: Inter, "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  background: transparent;
+  color: var(--text);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; width: 100%; min-width: 280px; min-height: 100%; background: transparent; }
+body { padding: 9px; }
+.overlay-shell { width: 100%; max-width: 620px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px; }
+.overlay-header { padding: 13px 15px 11px; border: 1px solid rgba(255,255,255,.13); border-radius: 17px; background: linear-gradient(145deg,rgba(13,16,24,.94),rgba(8,11,17,.89)); box-shadow: 0 12px 35px rgba(0,0,0,.2), inset 0 1px rgba(255,255,255,.04); backdrop-filter: blur(18px); }
+.brand-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.brand-mark { width: 34px; height: 34px; flex: 0 0 34px; display: grid; place-items: center; border: 1px solid rgba(181,138,255,.35); border-radius: 11px; color: #dfcaff; background: rgba(181,138,255,.12); font-size: 15px; font-weight: 900; box-shadow: 0 0 20px rgba(181,138,255,.07); }
+.eyebrow { margin: 0 0 2px; color: #9ba6b5; font-size: 8px; letter-spacing: .17em; font-weight: 850; }
+h1 { margin: 0; font-size: 16px; line-height: 1.2; letter-spacing: -.035em; font-weight: 850; }
+h1 span { color: #c3a0ff; }
+.live-pill { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; padding: 5px 7px; border: 1px solid rgba(255,80,108,.27); border-radius: 999px; color: #ffacb8; background: rgba(255,80,108,.08); font-size: 8px; letter-spacing: .08em; font-weight: 900; white-space: nowrap; }
+.live-pill i { width: 5px; height: 5px; border-radius: 50%; background: #ff526e; box-shadow: 0 0 8px rgba(255,82,110,.7); }
+.platform-status { display: flex; flex-wrap: wrap; gap: 6px; padding-left: 44px; margin-top: 8px; }
+.platform-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 7px; border: 1px solid rgba(255,255,255,.1); border-radius: 7px; color: #a7b0bd; background: rgba(255,255,255,.035); font-size: 8px; font-weight: 800; }
+.platform-chip i { width: 5px; height: 5px; border-radius: 50%; background: #737e8d; }
+.platform-chip.is-connected { color: #dcfff3; border-color: rgba(80,229,193,.22); background: rgba(80,229,193,.06); }
+.platform-chip.is-connected i { background: var(--tiktok); box-shadow: 0 0 8px rgba(80,229,193,.65); }
+.message-list { display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
+.chat-message { min-width: 0; padding: 11px 12px; border: 1px solid rgba(255,255,255,.1); border-left: 3px solid var(--tiktok); border-radius: 13px; background: linear-gradient(110deg,rgba(11,15,22,.92),rgba(9,12,18,.84)); box-shadow: 0 7px 22px rgba(0,0,0,.14); backdrop-filter: blur(16px); animation: message-in .22s ease both; }
+.chat-message.source-twitch { border-left-color: var(--twitch); }
+.message-header { display: flex; align-items: center; flex-wrap: wrap; min-width: 0; gap: 7px; }
+.source-badge { display: inline-flex; align-items: center; padding: 3px 6px; border: 1px solid rgba(80,229,193,.23); border-radius: 5px; color: var(--tiktok); background: rgba(80,229,193,.07); font-size: 7px; line-height: 1.2; font-weight: 950; letter-spacing: .09em; white-space: nowrap; }
+.source-badge.source-twitch { color: #d3b7ff; border-color: rgba(181,138,255,.28); background: rgba(181,138,255,.09); }
+.username { min-width: 0; max-width: 62%; color: #f2f4f8; font-size: 11px; font-weight: 800; overflow-wrap: anywhere; }
+.message-time { margin-left: auto; color: #778392; font: 9px ui-monospace, SFMono-Regular, Consolas, monospace; }
+.role-badge { padding: 2px 5px; border: 1px solid rgba(255,255,255,.13); border-radius: 5px; color: #adb8c6; font-size: 7px; font-weight: 900; }
+.message-body { min-width: 0; margin-top: 6px; color: #e7ebf2; font-size: 12px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.chat-emote { display: inline-block; width: auto; max-width: 100px; max-height: 38px; margin: 0 2px; vertical-align: middle; object-fit: contain; }
+.chat-empty { padding: 18px 14px; border: 1px dashed rgba(255,255,255,.16); border-radius: 13px; color: #a0aab8; background: rgba(10,13,20,.68); text-align: center; font-size: 11px; }
+@keyframes message-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+@media (max-width: 380px) { body { padding: 5px; }.overlay-header { padding: 11px; }.platform-status { padding-left: 0; }.message-body { font-size: 11px; } }
+@media (prefers-reduced-motion: reduce) { *,*::before,*::after { animation: none !important; transition: none !important; } }
