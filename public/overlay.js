@@ -16,9 +16,11 @@ const visualizerPanel = document.querySelector('#audio-visualizer-panel');
 const visualizerCanvas = document.querySelector('#audio-visualizer-canvas');
 const visualizerContext = visualizerCanvas.getContext('2d');
 const floatingCloseButton = document.querySelector('#floating-overlay-close');
+const inlineVisualizer = document.querySelector('#audio-visualizer-inline');
 
 let overlayConfig = {
-  notificationEnabled: true, durationSeconds: 8, style: 'vinyl', position: 'top-left',
+  notificationEnabled: true, preset: 'classic', notificationMode: 'timed', visualizerPlacement: 'separate',
+  durationSeconds: 8, style: 'vinyl', position: 'top-left',
   accentColor: '#1ed760', cardOpacity: 92, showCover: true, showArtist: true, showProgress: true,
   visualizerEnabled: true, visualizerStyle: 'bars', visualizerColor: '#ff6b9a',
   visualizerSensitivity: 1.2, visualizerHeight: 34
@@ -43,6 +45,7 @@ let isPlayingNow = false;
 let currentTrack = null;
 let currentError = '';
 let lastPlaybackTimestamp = null;
+let trackChangeAnimationTimer = null;
 
 function formatTime(milliseconds) {
   const seconds = Math.max(0, Math.floor(milliseconds / 1000));
@@ -51,6 +54,10 @@ function formatTime(milliseconds) {
 }
 
 function beginBannerExit() {
+  if (overlayConfig.notificationMode === 'persistent' && overlayConfig.notificationEnabled) {
+    banner.classList.remove('is-leaving');
+    return;
+  }
   clearTimeout(spinTimer);
   banner.classList.remove('is-opening', 'is-spinning');
   banner.classList.add('is-leaving');
@@ -78,11 +85,20 @@ function showBanner() {
     }
   }, 1100);
 
-  hideTimer = setTimeout(beginBannerExit, Math.max(3, Number(overlayConfig.durationSeconds) || 8) * 1000);
+  if (overlayConfig.notificationMode !== 'persistent') hideTimer = setTimeout(beginBannerExit, Math.max(3, Number(overlayConfig.durationSeconds) || 8) * 1000);
+}
+
+function animateTrackChange() {
+  clearTimeout(trackChangeAnimationTimer);
+  banner.classList.remove('is-track-changing');
+  void banner.offsetWidth;
+  banner.classList.add('is-track-changing');
+  trackChangeAnimationTimer = setTimeout(() => banner.classList.remove('is-track-changing'), 760);
 }
 
 function hideBannerSoon(delay = 1200) {
   clearTimeout(hideTimer);
+  if (overlayConfig.notificationMode === 'persistent' && overlayConfig.notificationEnabled) return;
   hideTimer = setTimeout(beginBannerExit, delay);
 }
 
