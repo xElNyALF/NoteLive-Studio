@@ -900,6 +900,175 @@ const server = http.createServer(async (req, res) => {
     return sendText(res, 403, 'Origen no permitido.');
   }
 
+
+  if (req.method === 'GET' && pathname === '/twitch-overlay') {
+    return serveAsset(res, 'twitch-overlay.html', 'text/html; charset=utf-8');
+  }
+  if (req.method === 'GET' && pathname === '/twitch-overlay.js') {
+    return serveAsset(res, 'twitch-overlay.js', 'text/javascript; charset=utf-8');
+  }
+  if (req.method === 'GET' && pathname === '/twitch-overlay.css') {
+    return serveAsset(res, 'twitch-overlay.css', 'text/css; charset=utf-8');
+  }
+  if (req.method === 'GET' && pathname === '/twitch-chat-overlay') {
+    return serveAsset(res, 'twitch-chat-overlay.html', 'text/html; charset=utf-8');
+  }
+  if (req.method === 'GET' && pathname === '/twitch-chat-overlay.js') {
+    return serveAsset(res, 'twitch-chat-overlay.js', 'text/javascript; charset=utf-8');
+  }
+  if (req.method === 'GET' && pathname === '/twitch-chat-overlay.css') {
+    return serveAsset(res, 'twitch-chat-overlay.css', 'text/css; charset=utf-8');
+  }
+
+  if (req.method === 'GET' && pathname === '/twitch/connect') {
+    if (!config.twitchClientId || !config.twitchClientSecret) {
+      return sendText(res, 400, 'Abre NoteLive Studio, guarda primero el Twitch Client ID y Client Secret y vuelve a pulsar Conectar Twitch.');
+    }
+    const state = crypto.randomBytes(24).toString('hex');
+    pendingTwitchAuth.set(state, { createdAt: Date.now() });
+    for (const [key, value] of pendingTwitchAuth) {
+      if (Date.now() - value.createdAt > 10 * 60 * 1000) pendingTwitchAuth.delete(key);
+    }
+    const authorize = new URL('https://id.twitch.tv/oauth2/authorize');
+    authorize.search = new URLSearchParams({
+      client_id: config.twitchClientId,
+      redirect_uri: TWITCH_REDIRECT_URI,
+      response_type: 'code',
+      scope: 'moderator:read:followers user:read:chat',
+      state,
+      force_verify: 'true'
+    }).toString();
+    res.writeHead(302, { Location: authorize.toString(), 'Cache-Control': 'no-store' });
+    return res.end();
+  }
+
+  if (req.method === 'GET' && pathname === '/twitch/callback') {
+    const oauthError = requestUrl.searchParams.get('error');
+    const code = requestUrl.searchParams.get('code');
+    const state = requestUrl.searchParams.get('state');
+    const pending = pendingTwitchAuth.get(state);
+    if (state) pendingTwitchAuth.delete(state);
+    if (oauthError) {
+      res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+      return res.end(twitchCallbackPage('Autorización cancelada', 'Twitch no autorizó la conexión. Regresa a NoteLive Studio y vuelve a intentarlo.'));
+    }
+    if (!pending || !code || Date.now() - pending.createdAt > 10 * 60 * 1000) {
+      res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+      return res.end(twitchCallbackPage('No se pudo validar el inicio de sesión', 'El código de autorización venció o el estado no coincide. Vuelve a NoteLive Studio e intenta conectar otra vez.'));
+    }
+    try {
+      const tokenResponse = await fetch('https://id.twitch.tv/oauth2/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id: config.twitchClientId,
+          client_secret: config.twitchClientSecret,
+          code,
+          grant_type: 'authorization_code',
+          redirect_uri: TWITCH_REDIRECT_URI
+        })
+      });
+      const tokenBody = await tokenResponse.json().catch(() => ({}));
+      if (!tokenResponse.ok || !tokenBody.access_token || !tokenBody.refresh_token) {
+        throw new Error(tokenBody.message || 'Twitch no aceptó el intercambio del código de autorización.');
+      }
+      const user = await getTwitchCurrentUser(tokenBody.access_token);
+      twitchTokens = {
+        ...tokenBody,
+        userId: user.id,
+        username: user.display_name || user.login,
+        login: user.login,
+        clientId: config.twitchClientId,
+        expires_at: Date.now() + Number(tokenBody.expires_in || 14400) * 1000
+      };
+      persistJson(TWITCH_TOKENS_FILE, twitchTokens);
+      updateTwitchStatus({ connected: false, status: 'connecting', username: twitchTokens.username, broadcasterId: user.id, error: '' });
+      startTwitchEventSub().catch(error => {
+        updateTwitchStatus({ connected: false, status: 'error', username: twitchTokens && twitchTokens.username || '', error: cleanText(error.message, 240) });
+      });
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' });
+      return res.end(twitchCallbackPage('¡Twitch conectado!', 'La autorización se guardó localmente para ' + (user.display_name || user.login) + '. NoteLive Studio está activando el chat y las alertas de seguimiento.', true));
+    } catch (error) {
+      console.error('[NoteLive Studio] Twitch OAuth:', error);
+      res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+      return res.end(twitchCallbackPage('No se pudo conectar Twitch', cleanText(error.message || error, 220)));
+    }
+  }
+
+  if (req.method === 'POST' && pathname === '/api/twitch/config') {
+    try {
+      const body = await readRequestJson(req);
+      const oldClientId = config.twitchClientId;
+      const oldClientSecret = config.twitchClientSecret;
+      const enteredClientId = typeof body.clientId === 'string' ? body.clientId.trim() : '';
+      const enteredClientSecret = typeof body.clientSecret === 'string' ? body.clientSecret.trim() : '';
+      if (enteredClientId && (enteredClientId.length < 8 || enteredClientId.length > 128)) {
+        return sendJson(res, 400, { error: 'El Client ID de Twitch no tiene un formato válido.' });
+      }
+      if (enteredClientSecret && (enteredClientSecret.length < 8 || enteredClientSecret.length > 256)) {
+        return sendJson(res, 400, { error: 'El Client Secret parece incompleto.' });
+      }
+      const nextClientId = body.clearCredentials === true ? '' : (enteredClientId || oldClientId);
+      const nextClientSecret = body.clearCredentials === true ? '' : (enteredClientSecret || oldClientSecret);
+      const credentialsChanged = nextClientId !== oldClientId || nextClientSecret !== oldClientSecret;
+      if (credentialsChanged && twitchTokens) await disconnectTwitch(true);
+      config.twitchClientId = nextClientId;
+      config.twitchClientSecret = nextClientSecret;
+      if (typeof body.readChat === 'boolean') config.twitchReadChat = body.readChat;
+      if (body.alertConfig && typeof body.alertConfig === 'object') config.twitchAlert = normalizeTwitchAlertConfig(body.alertConfig);
+      if (body.chatConfig && typeof body.chatConfig === 'object') config.twitchChatOverlay = normalizeTwitchChatConfig(body.chatConfig);
+      persistJson(CONFIG_FILE, config);
+      const current = publicStatus().twitch;
+      publishTwitchEvent({ type: 'config', status: current, alertConfig: config.twitchAlert, chatConfig: config.twitchChatOverlay, readChat: config.twitchReadChat, voice: publicStatus().voice });
+      return sendJson(res, 200, { ok: true, twitch: current });
+    } catch (error) {
+      return sendJson(res, 400, { error: error.message || 'No se pudo guardar la configuración de Twitch.' });
+    }
+  }
+
+  if (req.method === 'POST' && pathname === '/api/twitch/disconnect') {
+    await disconnectTwitch(true);
+    return sendJson(res, 200, { ok: true, twitch: publicStatus().twitch });
+  }
+
+  if (req.method === 'POST' && pathname === '/api/twitch/test-follow') {
+    try {
+      const body = await readRequestJson(req);
+      handleTwitchFollow({ user_name: cleanText(body.username || 'NoukanTest', 64) || 'NoukanTest' }, true);
+      return sendJson(res, 200, { ok: true });
+    } catch (error) {
+      return sendJson(res, 400, { error: error.message || 'No se pudo probar la alerta.' });
+    }
+  }
+
+  if (req.method === 'GET' && pathname === '/api/twitch/events') {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no'
+    });
+    res.write('data: ' + JSON.stringify({
+      type: 'init',
+      status: publicStatus().twitch,
+      history: recentTwitchChatMessages.slice(0, 30),
+      recentAlert: recentTwitchAlert,
+      alertConfig: config.twitchAlert,
+      chatConfig: config.twitchChatOverlay,
+      readChat: config.twitchReadChat !== false,
+      voice: publicStatus().voice
+    }) + '\n\n');
+    twitchSseClients.add(res);
+    const heartbeat = setInterval(() => {
+      try { res.write(': keep-alive\n\n'); } catch { clearInterval(heartbeat); }
+    }, 25000);
+    req.on('close', () => {
+      clearInterval(heartbeat);
+      twitchSseClients.delete(res);
+    });
+    return;
+  }
+
   if (req.method === 'GET' && pathname === '/') {
     return serveAsset(res, 'index.html', 'text/html; charset=utf-8');
   }
@@ -1016,6 +1185,7 @@ const server = http.createServer(async (req, res) => {
       persistJson(CONFIG_FILE, config);
       const voice = publicStatus().voice;
       publishTikTokEvent({ type: 'voice-config', voice });
+      publishTwitchEvent({ type: 'voice-config', voice });
       return sendJson(res, 200, { ok: true, voice });
     } catch (error) {
       return sendJson(res, 400, { error: error.message || 'No se pudo guardar la configuración de voz.' });
@@ -1274,6 +1444,9 @@ function startServer() {
       console.log(`Overlay: ${`http://${HOST}:${PORT}/overlay`}`);
       console.log(`Redirect URI de Spotify: ${REDIRECT_URI}\n`);
       schedulePoll(0);
+      if (twitchTokens && config.twitchClientId && config.twitchClientSecret) {
+        startTwitchEventSub().catch(error => updateTwitchStatus({ connected: false, status: 'error', error: cleanText(error.message, 240) }));
+      }
       resolve(server);
     };
     server.once('error', onError);
@@ -1288,6 +1461,7 @@ async function stopServer() {
     pollTimer = null;
   }
   try { await disconnectTikTok(false); } catch {}
+  try { await disconnectTwitch(false); } catch {}
   for (const client of sseClients) {
     try { client.end(); } catch {}
   }
@@ -1296,6 +1470,10 @@ async function stopServer() {
     try { client.end(); } catch {}
   }
   tiktokSseClients.clear();
+  for (const client of twitchSseClients) {
+    try { client.end(); } catch {}
+  }
+  twitchSseClients.clear();
   if (server.listening) {
     await new Promise(resolve => server.close(() => resolve()));
   }
