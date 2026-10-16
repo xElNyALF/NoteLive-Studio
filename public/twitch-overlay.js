@@ -69,3 +69,15 @@ events.addEventListener('message', event => {
   } catch {}
 });
 events.onerror = () => {};
+
+if (new URLSearchParams(window.location.search).get('preview') === '1') {
+  window.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => showAlert({
+      test: true,
+      username: 'NoukanViewer',
+      title: alertConfig.title,
+      message: String(alertConfig.message || '{username} ahora te sigue').replaceAll('{username}', 'NoukanViewer'),
+      durationSeconds: alertConfig.durationSeconds
+    }), 500);
+  }, { once: true });
+}
