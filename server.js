@@ -1213,6 +1213,90 @@ async function disconnectTwitch(clearTokens = true) {
   updateTwitchStatus({ connected: false, status: 'disconnected', username: '', broadcasterId: '', error: '' });
 }
 
+async function pollTwitchDeviceAuthorization(flow) {
+  while (pendingTwitchDeviceAuth === flow && Date.now() < flow.expiresAt) {
+    await new Promise(resolve => setTimeout(resolve, flow.interval * 1000));
+    if (pendingTwitchDeviceAuth !== flow) return;
+
+    let response;
+    let body;
+    try {
+      response = await fetch('https://id.twitch.tv/oauth2/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id: config.twitchClientId,
+          scopes: TWITCH_DEVICE_SCOPES,
+          device_code: flow.deviceCode,
+          grant_type: 'urn:ietf:params:oauth:grant-type:device_code'
+        })
+      });
+      body = await response.json().catch(() => ({}));
+    } catch (error) {
+      throw new Error('No se pudo comprobar la autorización de Twitch. Comprueba tu conexión a Internet.');
+    }
+
+    // A cancellation or newer authorization flow may have replaced this request
+    // while the network call was in flight.
+    if (pendingTwitchDeviceAuth !== flow) return;
+
+    if (response.ok && body.access_token && body.refresh_token) {
+      const user = await getTwitchCurrentUser(body.access_token);
+      if (pendingTwitchDeviceAuth !== flow) return;
+      twitchTokens = {
+        ...body,
+        userId: user.id,
+        username: user.display_name || user.login,
+        login: user.login,
+        clientId: config.twitchClientId,
+        expires_at: Date.now() + Number(body.expires_in || 14400) * 1000
+      };
+      persistJson(TWITCH_TOKENS_FILE, twitchTokens);
+      pendingTwitchDeviceAuth = null;
+      updateTwitchStatus({
+        connected: false,
+        status: 'connecting',
+        username: twitchTokens.username,
+        broadcasterId: user.id,
+        error: ''
+      });
+      startTwitchEventSub().catch(error => {
+        updateTwitchStatus({
+          connected: false,
+          status: 'error',
+          username: twitchTokens && twitchTokens.username || '',
+          error: cleanText(error.message, 240)
+        });
+      });
+      return;
+    }
+
+    const errorCode = String(body.error || body.message || '').toLowerCase();
+    if (errorCode === 'authorization_pending') continue;
+    if (errorCode === 'slow_down' || response.status === 429) {
+      flow.interval += 5;
+      continue;
+    }
+    if (errorCode === 'authorization_declined' || errorCode === 'access_denied') {
+      throw new Error('La autorización fue rechazada en Twitch. Puedes intentarlo de nuevo.');
+    }
+    if (errorCode === 'expired_token' || errorCode === 'invalid device code') {
+      throw new Error('El código de Twitch venció. Pulsa “Conectar cuenta Twitch” para generar otro.');
+    }
+    throw new Error(cleanText(body.message || body.error_description || body.error || 'Twitch no pudo completar la autorización.', 220));
+  }
+
+  if (pendingTwitchDeviceAuth === flow) {
+    pendingTwitchDeviceAuth = null;
+    updateTwitchStatus({
+      connected: false,
+      status: 'error',
+      username: '',
+      error: 'El código de autorización venció. Pulsa “Conectar cuenta Twitch” para generar uno nuevo.'
+    });
+  }
+}
+
 function twitchCallbackPage(title, message, success = false) {
   const color = success ? '#a970ff' : '#ff7587';
   const escapeHtml = value => String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -1336,6 +1420,70 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
       return res.end(twitchCallbackPage('No se pudo conectar Twitch', cleanText(error.message || error, 220)));
     }
+  }
+
+  if (req.method === 'POST' && pathname === '/api/twitch/device/start') {
+    try {
+      if (!USE_TWITCH_PUBLIC_CLIENT || !config.twitchClientId) {
+        return sendJson(res, 400, { error: 'La autorización mediante código no está configurada en esta versión.' });
+      }
+      if (twitchTokens && twitchTokens.refresh_token) {
+        return sendJson(res, 409, { error: 'Ya hay una cuenta de Twitch autorizada. Desconéctala antes de cambiar de cuenta.' });
+      }
+      const response = await fetch('https://id.twitch.tv/oauth2/device', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id: config.twitchClientId,
+          scopes: TWITCH_DEVICE_SCOPES
+        })
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || !body.device_code || !body.user_code || !body.verification_uri) {
+        return sendJson(res, 502, { error: cleanText(body.message || body.error_description || body.error || 'Twitch no pudo generar el código de autorización.', 220) });
+      }
+
+      const verificationUrl = new URL(body.verification_uri);
+      if (verificationUrl.protocol !== 'https:' || !['www.twitch.tv', 'twitch.tv'].includes(verificationUrl.hostname)) {
+        return sendJson(res, 502, { error: 'Twitch devolvió una URL de autorización no válida.' });
+      }
+
+      const flow = {
+        deviceCode: String(body.device_code),
+        userCode: String(body.user_code),
+        verificationUri: verificationUrl.toString(),
+        interval: Math.max(5, Number(body.interval) || 5),
+        expiresAt: Date.now() + Math.max(60, Number(body.expires_in) || 1800) * 1000
+      };
+      pendingTwitchDeviceAuth = flow;
+      updateTwitchStatus({ connected: false, status: 'authorizing', username: '', broadcasterId: '', error: '' });
+      pollTwitchDeviceAuthorization(flow).catch(error => {
+        if (pendingTwitchDeviceAuth !== flow) return;
+        pendingTwitchDeviceAuth = null;
+        updateTwitchStatus({
+          connected: false,
+          status: 'error',
+          username: '',
+          broadcasterId: '',
+          error: cleanText(error.message || error, 240)
+        });
+      });
+      return sendJson(res, 200, {
+        ok: true,
+        userCode: flow.userCode,
+        verificationUri: flow.verificationUri,
+        expiresIn: Math.max(60, Number(body.expires_in) || 1800),
+        interval: flow.interval
+      });
+    } catch (error) {
+      return sendJson(res, 502, { error: error.message || 'No se pudo iniciar la autorización de Twitch.' });
+    }
+  }
+
+  if (req.method === 'POST' && pathname === '/api/twitch/device/cancel') {
+    pendingTwitchDeviceAuth = null;
+    updateTwitchStatus({ connected: false, status: 'disconnected', username: '', broadcasterId: '', error: '' });
+    return sendJson(res, 200, { ok: true, twitch: publicStatus().twitch });
   }
 
   if (req.method === 'POST' && pathname === '/api/twitch/config') {
