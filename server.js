@@ -26,6 +26,9 @@ const POLL_INTERVAL_MS = 5000;
 
 const DEFAULT_OVERLAY_CONFIG = Object.freeze({
   notificationEnabled: true,
+  preset: 'classic',
+  notificationMode: 'timed',
+  visualizerPlacement: 'separate',
   durationSeconds: 8,
   style: 'vinyl',
   position: 'top-left',
@@ -52,6 +55,9 @@ function normalizeOverlayConfig(value) {
   const pick = (field, options) => options.includes(input[field]) ? input[field] : DEFAULT_OVERLAY_CONFIG[field];
   return {
     notificationEnabled: input.notificationEnabled !== false,
+    preset: pick('preset', ['classic', 'aesthetic', 'spectrum', 'mini', 'neon', 'retro', 'orbit', 'cyberpunk', 'mono', 'always-on', 'custom']),
+    notificationMode: pick('notificationMode', ['timed', 'persistent']),
+    visualizerPlacement: pick('visualizerPlacement', ['separate', 'inside']),
     durationSeconds: Math.round(clampNumber(input.durationSeconds, 3, 20, DEFAULT_OVERLAY_CONFIG.durationSeconds)),
     style: pick('style', ['vinyl', 'glass', 'minimal']),
     position: pick('position', ['top-left', 'top-right', 'bottom-left', 'bottom-right']),

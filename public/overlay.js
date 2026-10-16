@@ -16,9 +16,11 @@ const visualizerPanel = document.querySelector('#audio-visualizer-panel');
 const visualizerCanvas = document.querySelector('#audio-visualizer-canvas');
 const visualizerContext = visualizerCanvas.getContext('2d');
 const floatingCloseButton = document.querySelector('#floating-overlay-close');
+const inlineVisualizer = document.querySelector('#audio-visualizer-inline');
 
 let overlayConfig = {
-  notificationEnabled: true, durationSeconds: 8, style: 'vinyl', position: 'top-left',
+  notificationEnabled: true, preset: 'classic', notificationMode: 'timed', visualizerPlacement: 'separate',
+  durationSeconds: 8, style: 'vinyl', position: 'top-left',
   accentColor: '#1ed760', cardOpacity: 92, showCover: true, showArtist: true, showProgress: true,
   visualizerEnabled: true, visualizerStyle: 'bars', visualizerColor: '#ff6b9a',
   visualizerSensitivity: 1.2, visualizerHeight: 34
@@ -43,6 +45,7 @@ let isPlayingNow = false;
 let currentTrack = null;
 let currentError = '';
 let lastPlaybackTimestamp = null;
+let trackChangeAnimationTimer = null;
 
 function formatTime(milliseconds) {
   const seconds = Math.max(0, Math.floor(milliseconds / 1000));
@@ -51,6 +54,10 @@ function formatTime(milliseconds) {
 }
 
 function beginBannerExit() {
+  if (overlayConfig.notificationMode === 'persistent' && overlayConfig.notificationEnabled) {
+    banner.classList.remove('is-leaving');
+    return;
+  }
   clearTimeout(spinTimer);
   banner.classList.remove('is-opening', 'is-spinning');
   banner.classList.add('is-leaving');
@@ -67,7 +74,7 @@ function showBanner() {
 
   // Reinicia la secuencia: el vinilo aparece, la tarjeta se despliega y
   // después entran los textos y controles en cascada.
-  banner.classList.remove('is-visible', 'is-opening', 'is-leaving', 'is-spinning');
+  banner.classList.remove('is-visible', 'is-opening', 'is-leaving', 'is-spinning', 'is-track-changing');
   void banner.offsetWidth;
   banner.classList.add('is-visible', 'is-opening');
 
@@ -78,11 +85,20 @@ function showBanner() {
     }
   }, 1100);
 
-  hideTimer = setTimeout(beginBannerExit, Math.max(3, Number(overlayConfig.durationSeconds) || 8) * 1000);
+  if (overlayConfig.notificationMode !== 'persistent') hideTimer = setTimeout(beginBannerExit, Math.max(3, Number(overlayConfig.durationSeconds) || 8) * 1000);
+}
+
+function animateTrackChange() {
+  clearTimeout(trackChangeAnimationTimer);
+  banner.classList.remove('is-track-changing');
+  void banner.offsetWidth;
+  banner.classList.add('is-track-changing');
+  trackChangeAnimationTimer = setTimeout(() => banner.classList.remove('is-track-changing'), 760);
 }
 
 function hideBannerSoon(delay = 1200) {
   clearTimeout(hideTimer);
+  if (overlayConfig.notificationMode === 'persistent' && overlayConfig.notificationEnabled) return;
   hideTimer = setTimeout(beginBannerExit, delay);
 }
 
@@ -149,8 +165,13 @@ function applyState(state) {
   isPlayingNow = isPlaying;
   banner.classList.toggle('is-paused', !isPlaying);
 
-  if (overlayConfig.notificationEnabled && isPlaying && (trackChanged || justResumed || firstActiveTrack || repeatedTrackRestart)) showBanner();
-  else if (!overlayConfig.notificationEnabled || (!track && !isPlaying)) hideBannerSoon();
+  const songEvent = isPlaying && (trackChanged || justResumed || firstActiveTrack || repeatedTrackRestart);
+  if (overlayConfig.notificationEnabled && songEvent) {
+    if (overlayConfig.notificationMode === 'persistent' && banner.classList.contains('is-visible')) animateTrackChange();
+    else showBanner();
+  } else if (!overlayConfig.notificationEnabled) hideBannerSoon(0);
+  else if (!track && !isPlaying && overlayConfig.notificationMode !== 'persistent') hideBannerSoon();
+  else if (overlayConfig.notificationMode === 'persistent' && track && !banner.classList.contains('is-visible')) showBanner();
 
   if (key) lastTrackKey = key;
   if (state.playback_timestamp) lastPlaybackTimestamp = state.playback_timestamp;
@@ -177,12 +198,19 @@ function hexToRgb(hex) {
 function applyOverlayConfig(config) {
   overlayConfig = { ...overlayConfig, ...(config || {}) };
   stage.dataset.position = overlayConfig.position || 'top-left';
+  stage.dataset.preset = overlayConfig.preset || 'classic';
+  banner.dataset.preset = overlayConfig.preset || 'classic';
+  banner.dataset.visualizerPlacement = overlayConfig.visualizerPlacement || 'separate';
+  banner.classList.toggle('is-persistent', overlayConfig.notificationMode === 'persistent');
   banner.dataset.style = overlayConfig.style || 'vinyl';
   banner.style.setProperty('--green', overlayConfig.accentColor || '#1ed760');
   banner.style.setProperty('--green-rgb', hexToRgb(overlayConfig.accentColor || '#1ed760'));
   banner.style.setProperty('--card-opacity', String(Math.max(40, Math.min(100, Number(overlayConfig.cardOpacity) || 92)) / 100));
   visualizerPanel.style.setProperty('--visualizer-color', overlayConfig.visualizerColor || '#ff6b9a');
   visualizerPanel.style.setProperty('--visualizer-rgb', hexToRgb(overlayConfig.visualizerColor || '#ff6b9a'));
+  banner.style.setProperty('--visualizer-color', overlayConfig.visualizerColor || '#ff6b9a');
+  banner.style.setProperty('--visualizer-rgb', hexToRgb(overlayConfig.visualizerColor || '#ff6b9a'));
+  banner.style.setProperty('--visualizer-height', (Number(overlayConfig.visualizerHeight) || 34) + 'px');
   visualizerPanel.style.setProperty('--visualizer-height', (Number(overlayConfig.visualizerHeight) || 34) + 'px');
   banner.classList.toggle('hide-cover', overlayConfig.showCover === false);
   banner.classList.toggle('hide-artist', overlayConfig.showArtist === false);
@@ -190,13 +218,51 @@ function applyOverlayConfig(config) {
   if (!overlayConfig.notificationEnabled) {
     clearTimeout(hideTimer);
     beginBannerExit();
+  } else if (overlayConfig.notificationMode === 'persistent') {
+    clearTimeout(hideTimer);
+    if (currentTrack && (!banner.classList.contains('is-visible') || banner.classList.contains('is-leaving'))) showBanner();
   }
   drawAudioVisualizer();
 }
 
+function ensureInlineVisualizerBars() {
+  if (inlineVisualizer.childElementCount) return;
+  for (let i = 0; i < 32; i += 1) {
+    const bar = document.createElement('span');
+    bar.className = 'inline-spectrum-bar';
+    inlineVisualizer.appendChild(bar);
+  }
+}
+
+function drawInlineVisualizer() {
+  const visible = Boolean(
+    overlayConfig.visualizerEnabled &&
+    audioVisualizer.active &&
+    overlayConfig.visualizerPlacement === 'inside' &&
+    banner.classList.contains('is-visible') &&
+    overlayConfig.notificationEnabled
+  );
+  inlineVisualizer.hidden = !visible;
+  if (!visible) return;
+  ensureInlineVisualizerBars();
+  const levels = Array.isArray(audioVisualizer.levels) ? audioVisualizer.levels : [];
+  const sensitivity = Math.max(0.5, Math.min(2, Number(overlayConfig.visualizerSensitivity) || 1.2));
+  const height = Math.max(20, Math.min(80, Number(overlayConfig.visualizerHeight) || 34));
+  for (let i = 0; i < inlineVisualizer.children.length; i += 1) {
+    const level = Math.max(0.035, Math.min(1, Number(levels[i] || 0) * sensitivity));
+    inlineVisualizer.children[i].style.height = Math.max(2, level * height * 0.78) + 'px';
+    inlineVisualizer.children[i].style.opacity = String(0.46 + level * 0.54);
+  }
+}
+
 function drawAudioVisualizer() {
-  const visible = Boolean(overlayConfig.visualizerEnabled && audioVisualizer.active);
+  const visible = Boolean(
+    overlayConfig.visualizerEnabled &&
+    audioVisualizer.active &&
+    overlayConfig.visualizerPlacement !== 'inside'
+  );
   visualizerPanel.hidden = !visible;
+  drawInlineVisualizer();
   if (!visible) return;
   const bounds = visualizerCanvas.getBoundingClientRect();
   if (!bounds.width || !bounds.height) return;

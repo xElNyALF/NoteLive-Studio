@@ -9,7 +9,7 @@ El ZIP contiene el código fuente y los scripts de compilación, no un instalado
 1. Instala Node.js 22.12 o posterior desde https://nodejs.org/ si no lo tienes.
 2. Descomprime la carpeta `notelive-studio` en una ubicación local, no dentro de una carpeta temporal.
 3. Ejecuta `BUILD-WINDOWS.bat` y espera a que termine la instalación de dependencias y la compilación. Requiere conexión a Internet la primera vez.
-4. El instalador aparecerá en `dist\NoteLive-Studio-Setup-0.3.0.exe`.
+4. El instalador aparecerá en `dist\NoteLive-Studio-Setup-0.3.4.exe`.
 5. Ejecuta el instalador y abre NoteLive Studio desde el acceso directo del escritorio o el menú Inicio. El programa instalado no necesita que abras la terminal ni que ejecutes `start.bat`.
 
 `start.bat` es para ejecutar el código fuente en modo desarrollo; no es el modo recomendado una vez instalado el programa.
@@ -23,6 +23,7 @@ La configuración y las credenciales se guardan en la carpeta de datos de NoteLi
 ## Funciones
 
 - **v0.3.1:** editor de notificación musical (estilo, posición, duración, colores, opacidad y elementos visibles), visualizador FFT real del audio de Windows para OBS (barras, onda, espejo o círculo) y mini overlay de escritorio opcional. La captura se inicia manualmente; el audio no se graba y solo se envían niveles al servidor local.
+- **v0.3.4:** diez estilos seleccionables para la notificación musical (Original, Aesthetic, Rhythm Inside, Mini Capsule, Neon Pulse, Retro EQ, Orbit, Cyberpunk, Mono Clean y Always On). Puedes colocar el visualizador dentro de la tarjeta o debajo y elegir entre notificación temporal o reproductor permanente. En el modo permanente solo se anima el contenido al cambiar de canción; el panel no se oculta.
 
 - Interfaz reorganizada en navegación lateral: Inicio, Twitch (apartado reservado), Spotify, TikTok LIVE, Voz IA, OBS y Personalizar.
 - Fondo personalizable de la interfaz: importa una imagen local, la aplicación optimiza su tamaño, y permite ajustar el desenfoque, oscurecimiento, opacidad de los paneles, posición del wallpaper y color de acento. Los ajustes se guardan en el almacenamiento local de la instalación.

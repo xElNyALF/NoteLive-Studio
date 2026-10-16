@@ -122,6 +122,25 @@
               <div class="step-number">03</div>
               <div><h3>Notificación musical y visualizador</h3><p class="muted">Diseña la tarjeta que aparece al cambiar de canción y el ritmo que verá OBS.</p></div>
             </div>
+            <div class="music-presets-block">
+              <div class="music-presets-heading">
+                <div><h4 class="music-subheading">Elige una apariencia</h4><p class="field-hint">10 estilos distintos. Puedes volver al original cuando quieras.</p></div>
+                <span class="music-preset-count">10 PRESETS</span>
+              </div>
+              <input id="music-preset-id" type="hidden" value="classic">
+              <div class="music-presets-grid" id="music-presets-grid">
+                <button class="music-preset-card is-selected" data-music-preset="classic" type="button"><span class="preset-demo demo-classic"><span class="preset-cover">♫</span><span class="preset-demo-copy"><i></i><i></i><em></em></span><span class="preset-demo-bars"><b></b><b></b><b></b><b></b><b></b></span></span><strong>01 · Original</strong><small>Vinilo y tarjeta clásica</small></button>
+                <button class="music-preset-card" data-music-preset="aesthetic" type="button"><span class="preset-demo demo-aesthetic"><span class="preset-cover">✦</span><span class="preset-demo-copy"><i></i><i></i><em></em></span><span class="preset-demo-wave"></span></span><strong>02 · Aesthetic</strong><small>Cristal suave y pastel</small></button>
+                <button class="music-preset-card" data-music-preset="spectrum" type="button"><span class="preset-demo demo-spectrum"><span class="preset-cover">♫</span><span class="preset-demo-copy"><i></i><i></i><em></em></span><span class="preset-demo-bars"><b></b><b></b><b></b><b></b><b></b><b></b><b></b></span></span><strong>03 · Rhythm Inside</strong><small>El ritmo dentro de la noti</small></button>
+                <button class="music-preset-card" data-music-preset="mini" type="button"><span class="preset-demo demo-mini"><span class="preset-cover">♫</span><span class="preset-demo-copy"><i></i><i></i><em></em></span><span class="preset-demo-bars"><b></b><b></b><b></b><b></b><b></b></span></span><strong>04 · Mini Capsule</strong><small>Pequeña y discreta</small></button>
+                <button class="music-preset-card" data-music-preset="neon" type="button"><span class="preset-demo demo-neon"><span class="preset-cover">N</span><span class="preset-demo-copy"><i></i><i></i><em></em></span><span class="preset-demo-bars"><b></b><b></b><b></b><b></b><b></b><b></b></span></span><strong>05 · Neon Pulse</strong><small>Neón rosa y brillo</small></button>
+                <button class="music-preset-card" data-music-preset="retro" type="button"><span class="preset-demo demo-retro"><span class="preset-cover">◈</span><span class="preset-demo-copy"><i></i><i></i><em></em></span><span class="preset-demo-bars"><b></b><b></b><b></b><b></b><b></b><b></b></span></span><strong>06 · Retro EQ</strong><small>Ámbar y barras espejo</small></button>
+                <button class="music-preset-card" data-music-preset="orbit" type="button"><span class="preset-demo demo-orbit"><span class="preset-cover">◉</span><span class="preset-demo-copy"><i></i><i></i><em></em></span><span class="preset-demo-orbit"></span></span><strong>07 · Orbit</strong><small>Visualizador circular</small></button>
+                <button class="music-preset-card" data-music-preset="cyberpunk" type="button"><span class="preset-demo demo-cyberpunk"><span class="preset-cover">✧</span><span class="preset-demo-copy"><i></i><i></i><em></em></span><span class="preset-demo-wave"></span></span><strong>08 · Cyberpunk</strong><small>Fucsia eléctrico</small></button>
+                <button class="music-preset-card" data-music-preset="mono" type="button"><span class="preset-demo demo-mono"><span class="preset-cover">♪</span><span class="preset-demo-copy"><i></i><i></i><em></em></span><span class="preset-demo-bars"><b></b><b></b><b></b><b></b><b></b><b></b></span></span><strong>09 · Mono Clean</strong><small>Blanco y minimalista</small></button>
+                <button class="music-preset-card" data-music-preset="always-on" type="button"><span class="preset-demo demo-always"><span class="preset-cover">∞</span><span class="preset-demo-copy"><i></i><i></i><em></em></span><span class="preset-demo-bars"><b></b><b></b><b></b><b></b><b></b><b></b></span></span><strong>10 · Always On</strong><small>Permanece; anima solo el cambio</small></button>
+              </div>
+            </div>
             <div class="music-design-grid">
               <div class="music-editor-column">
                 <h4 class="music-subheading">Notificación de canción</h4>
@@ -143,6 +162,16 @@
                       <option value="bottom-left">Abajo a la izquierda</option>
                       <option value="bottom-right">Abajo a la derecha</option>
                     </select>
+                  </div>
+                </div>
+                <div class="field-grid-two music-mode-grid">
+                  <div class="field-stack">
+                    <label for="music-notification-mode">Comportamiento de la notificación</label>
+                    <select id="music-notification-mode"><option value="timed">Temporal · se oculta después</option><option value="persistent">Permanente · no se oculta</option></select>
+                  </div>
+                  <div class="field-stack">
+                    <label for="music-visualizer-placement">Posición del visualizador</label>
+                    <select id="music-visualizer-placement"><option value="separate">Debajo de la notificación</option><option value="inside">Dentro de la notificación</option></select>
                   </div>
                 </div>
                 <div class="appearance-field range-field">
