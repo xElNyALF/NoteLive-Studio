@@ -189,3 +189,45 @@ footer { max-width: 1320px; margin: 27px auto 0; padding: 15px 2px 4px; display:
 .music-mode-grid { margin-top: 18px; }
 @media (max-width: 1120px) { .music-presets-grid { grid-template-columns: repeat(3,minmax(0,1fr)); } }
 @media (max-width: 690px) { .music-presets-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } .music-presets-block { padding: 12px; } }
+
+
+/* NoteLive Studio 0.3.5 — Twitch studio */
+.twitch-setup-note { margin: 0 0 18px; padding: 14px 16px; border: 1px solid rgba(169,112,255,.24); border-radius: 12px; color: var(--muted); background: rgba(169,112,255,.055); font-size: 11px; line-height: 1.65; }
+.twitch-setup-note strong { color: var(--text); }
+.twitch-setup-note a { color: #c9a8ff; font-weight: 800; text-decoration: none; }
+.twitch-setup-note a:hover { text-decoration: underline; }
+.twitch-credentials-grid, .twitch-design-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 15px; }
+.twitch-credentials-grid { margin-bottom: 17px; }
+.twitch-design-grid { margin: 16px 0; }
+.twitch-full-field { grid-column: 1 / -1; }
+.twitch-redirect-box, .twitch-url-card { display: flex; align-items: center; justify-content: space-between; gap: 15px; min-width: 0; margin: 15px 0; padding: 13px 15px; border: 1px solid var(--stroke); border-radius: 12px; background: rgba(0,0,0,.15); }
+.twitch-redirect-box > div, .twitch-url-card > div { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 6px; }
+.twitch-redirect-box code, .twitch-url-card code { overflow-wrap: anywhere; color: #d6baff; font-size: 11px; }
+.twitch-url-card small { color: var(--muted); font-size: 9px; }
+.twitch-connect-actions { flex-wrap: wrap; gap: 9px; margin: 15px 0; }
+.twitch-status-card { margin-top: 18px; }
+.twitch-status-card .status-tag { flex-shrink: 0; }
+.twitch-status-card .status-tag.online { border-color: rgba(89,224,157,.25); color: #77e7ae; }
+.twitch-help-details { padding-top: 13px; border-top: 1px solid var(--stroke); color: var(--muted); font-size: 11px; line-height: 1.65; }
+.twitch-help-details summary { color: var(--text); font-weight: 750; cursor: pointer; }
+.twitch-help-details p { margin-bottom: 0; }
+.twitch-help-details code { color: #d6baff; }
+.twitch-toggle-row { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 22px; }
+.twitch-toggle-row .check-label { font-size: 11px; }
+.twitch-toggle-row input { accent-color: #a970ff; }
+.twitch-setup-panel, .twitch-alert-panel, .twitch-chat-panel { margin-bottom: 18px; }
+.twitch-chat-design-grid { margin-bottom: 10px; }
+.twitch-chat-heading { margin-top: 20px; }
+.twitch-chat-feed { max-height: 390px; overflow-y: auto; }
+.twitch-chat-feed .chat-item { border-left-color: #a970ff; }
+.twitch-chat-feed .chat-user { color: #c9a8ff; }
+.twitch-chat-feed .chat-state { font-size: 9px; }
+.twitch-chat-feed .chat-comment { white-space: pre-wrap; overflow-wrap: anywhere; }
+.twitch-design-grid input[type="range"] { accent-color: #a970ff; }
+.twitch-design-grid input[type="color"] { accent-color: #a970ff; }
+@media (max-width: 780px) {
+  .twitch-credentials-grid, .twitch-design-grid { grid-template-columns: minmax(0,1fr); }
+  .twitch-full-field { grid-column: auto; }
+  .twitch-redirect-box, .twitch-url-card { align-items: flex-start; flex-direction: column; }
+  .twitch-redirect-box .button, .twitch-url-card .button { width: 100%; justify-content: center; }
+}
