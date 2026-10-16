@@ -601,6 +601,296 @@ function serveAsset(res, assetName, contentType) {
   });
 }
 
+
+function updateTwitchStatus(next) {
+  twitchStatus = { ...twitchStatus, ...next };
+  publishTwitchEvent({ type: 'status', status: { ...twitchStatus } });
+}
+
+function twitchApiHeaders(accessToken) {
+  return {
+    'Client-Id': config.twitchClientId,
+    'Authorization': 'Bearer ' + accessToken,
+    'Content-Type': 'application/json'
+  };
+}
+
+async function refreshTwitchAccessToken() {
+  if (!config.twitchClientId || !config.twitchClientSecret || !twitchTokens || !twitchTokens.refresh_token) {
+    throw new Error('Vuelve a conectar Twitch para renovar el permiso.');
+  }
+  const response = await fetch('https://id.twitch.tv/oauth2/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: config.twitchClientId,
+      client_secret: config.twitchClientSecret,
+      grant_type: 'refresh_token',
+      refresh_token: twitchTokens.refresh_token
+    })
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok || !body.access_token) {
+    throw new Error('Twitch ya no acepta la sesión guardada. Desconecta y vuelve a conectar la cuenta.');
+  }
+  twitchTokens = {
+    ...twitchTokens,
+    ...body,
+    userId: twitchTokens.userId,
+    username: twitchTokens.username,
+    clientId: config.twitchClientId,
+    expires_at: Date.now() + Number(body.expires_in || 14400) * 1000
+  };
+  persistJson(TWITCH_TOKENS_FILE, twitchTokens);
+  return twitchTokens.access_token;
+}
+
+async function getValidTwitchAccessToken() {
+  if (!twitchTokens || !twitchTokens.access_token) throw new Error('Conecta tu cuenta de Twitch primero.');
+  if (Number(twitchTokens.expires_at || 0) < Date.now() + 60000) return refreshTwitchAccessToken();
+  const response = await fetch('https://id.twitch.tv/oauth2/validate', {
+    headers: { Authorization: 'Bearer ' + twitchTokens.access_token }
+  });
+  const body = await response.json().catch(() => ({}));
+  if (response.ok && body.client_id === config.twitchClientId) return twitchTokens.access_token;
+  return refreshTwitchAccessToken();
+}
+
+async function getTwitchCurrentUser(accessToken) {
+  const response = await fetch('https://api.twitch.tv/helix/users', {
+    headers: twitchApiHeaders(accessToken)
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok || !body.data || !body.data[0]) {
+    throw new Error('No se pudo leer la cuenta de Twitch autorizada. Comprueba las credenciales de la aplicación.');
+  }
+  return body.data[0];
+}
+
+async function createTwitchEventSubscription(sessionId, type, version, condition, accessToken) {
+  const response = await fetch('https://api.twitch.tv/helix/eventsub/subscriptions', {
+    method: 'POST',
+    headers: twitchApiHeaders(accessToken),
+    body: JSON.stringify({
+      type,
+      version,
+      condition,
+      transport: { method: 'websocket', session_id: sessionId }
+    })
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(type + ': ' + (body.message || body.error || ('HTTP ' + response.status)));
+  return body.data && body.data[0] || null;
+}
+
+function makeTwitchFollowAlert(username, test) {
+  const safeName = cleanText(username || 'Un nuevo seguidor', 64);
+  const title = cleanConfigText(config.twitchAlert.title, 64, DEFAULT_TWITCH_ALERT_CONFIG.title);
+  const template = cleanConfigText(config.twitchAlert.message, 120, DEFAULT_TWITCH_ALERT_CONFIG.message);
+  return {
+    id: crypto.randomUUID(),
+    username: safeName,
+    title,
+    message: template.replaceAll('{username}', safeName),
+    style: config.twitchAlert.style,
+    accentColor: config.twitchAlert.accentColor,
+    durationSeconds: config.twitchAlert.durationSeconds,
+    soundEnabled: config.twitchAlert.soundEnabled,
+    timestamp: Date.now(),
+    test: Boolean(test)
+  };
+}
+
+function handleTwitchFollow(event, test = false) {
+  if (!config.twitchAlert.enabled && !test) return;
+  const alert = makeTwitchFollowAlert(event && (event.user_name || event.user_login) || 'Nuevo seguidor', test);
+  recentTwitchAlert = alert;
+  publishTwitchEvent({ type: 'follow', alert });
+}
+
+function handleTwitchChat(event) {
+  const username = cleanText(event && (event.chatter_user_name || event.chatter_user_login) || 'Usuario', 64) || 'Usuario';
+  const comment = cleanText(event && event.message && event.message.text || '', Math.max(30, Math.min(180, Number(config.ttsMaxChars) || 180)));
+  if (!comment) return;
+  const shouldSpeak = Boolean(
+    config.twitchReadChat !== false &&
+    config.ttsEnabled !== false &&
+    config.elevenLabsApiKey &&
+    config.elevenLabsVoiceId &&
+    allowVoiceForChat(username, comment)
+  );
+  const badges = Array.isArray(event && event.badges) ? event.badges : [];
+  const item = {
+    id: event && event.message_id || crypto.randomUUID(),
+    username,
+    comment,
+    timestamp: Date.now(),
+    speakText: shouldSpeak ? formatVoiceText(username, comment) : '',
+    shouldSpeak,
+    platform: 'twitch',
+    isModerator: badges.some(badge => badge.set_id === 'moderator'),
+    isSubscriber: badges.some(badge => badge.set_id === 'subscriber'),
+    isVip: badges.some(badge => badge.set_id === 'vip')
+  };
+  recentTwitchChatMessages.unshift(item);
+  recentTwitchChatMessages = recentTwitchChatMessages.slice(0, 50);
+  publishTwitchEvent({ type: 'chat', message: item });
+}
+
+async function connectTwitchWebSocket(url = 'wss://eventsub.wss.twitch.tv/ws', isReconnect = false) {
+  if (typeof WebSocket !== 'function') {
+    throw new Error('Este entorno no dispone de WebSocket nativo para EventSub. Actualiza NoteLive Studio.');
+  }
+  twitchShouldReconnect = true;
+  const accessToken = await getValidTwitchAccessToken();
+  const userId = twitchTokens.userId;
+  if (!userId) throw new Error('No se encontró el ID de la cuenta de Twitch. Desconecta y vuelve a autorizar.');
+  const previousSocket = twitchSocket;
+  const generation = ++twitchSocketGeneration;
+  const socket = new WebSocket(url);
+  twitchSocket = socket;
+  updateTwitchStatus({ connected: false, status: 'connecting', username: twitchTokens.username, broadcasterId: userId, error: '' });
+
+  socket.addEventListener('message', async messageEvent => {
+    let packet;
+    try { packet = JSON.parse(String(messageEvent.data)); } catch { return; }
+    const messageType = packet && packet.metadata && packet.metadata.message_type;
+    const payload = packet && packet.payload || {};
+
+    if (messageType === 'session_welcome') {
+      if (generation !== twitchSocketGeneration) return;
+      twitchSessionId = payload.session && payload.session.id || '';
+      if (isReconnect) {
+        if (previousSocket && previousSocket !== socket) {
+          try { previousSocket.close(1000, 'EventSub reconnected'); } catch {}
+        }
+        updateTwitchStatus({ connected: true, status: 'connected', username: twitchTokens.username, broadcasterId: userId, error: '' });
+        return;
+      }
+      const results = await Promise.allSettled([
+        createTwitchEventSubscription(twitchSessionId, 'channel.follow', '2', {
+          broadcaster_user_id: userId,
+          moderator_user_id: userId
+        }, accessToken),
+        createTwitchEventSubscription(twitchSessionId, 'channel.chat.message', '1', {
+          broadcaster_user_id: userId,
+          user_id: userId
+        }, accessToken)
+      ]);
+      const failures = results.filter(result => result.status === 'rejected').map(result => result.reason && result.reason.message || 'Error de suscripción');
+      const successCount = results.length - failures.length;
+      updateTwitchStatus({
+        connected: successCount > 0,
+        status: successCount > 0 ? 'connected' : 'error',
+        username: twitchTokens.username,
+        broadcasterId: userId,
+        error: failures.length ? 'Conexión parcial: ' + failures.join(' · ') : ''
+      });
+      return;
+    }
+
+    if (messageType === 'session_reconnect') {
+      const reconnectUrl = payload.session && payload.session.reconnect_url;
+      if (reconnectUrl && generation === twitchSocketGeneration) {
+        connectTwitchWebSocket(reconnectUrl, true).catch(error => {
+          updateTwitchStatus({ connected: false, status: 'error', error: cleanText(error.message, 220) });
+        });
+      }
+      return;
+    }
+
+    if (messageType === 'notification') {
+      const eventType = payload.subscription && payload.subscription.type;
+      const event = payload.event || {};
+      if (eventType === 'channel.follow') handleTwitchFollow(event, false);
+      else if (eventType === 'channel.chat.message') handleTwitchChat(event);
+      return;
+    }
+
+    if (messageType === 'revocation') {
+      updateTwitchStatus({
+        connected: false,
+        status: 'error',
+        error: 'Twitch revocó una suscripción: ' + ((payload.subscription && payload.subscription.type) || 'desconocida') + '. Vuelve a conectar la cuenta.'
+      });
+    }
+  });
+
+  socket.addEventListener('error', () => {
+    if (generation === twitchSocketGeneration) {
+      updateTwitchStatus({ connected: false, status: 'connecting', error: 'No se pudo mantener la conexión con Twitch EventSub.' });
+    }
+  });
+
+  socket.addEventListener('close', () => {
+    if (generation !== twitchSocketGeneration) return;
+    twitchSocket = null;
+    twitchSessionId = '';
+    if (!twitchShouldReconnect) return;
+    updateTwitchStatus({ connected: false, status: 'reconnecting', error: 'Se perdió la conexión con Twitch. Reconectando…' });
+    clearTimeout(twitchReconnectTimer);
+    twitchReconnectTimer = setTimeout(() => {
+      connectTwitchWebSocket().catch(error => {
+        updateTwitchStatus({ connected: false, status: 'error', error: cleanText(error.message, 240) });
+      });
+    }, 4000);
+  });
+}
+
+async function startTwitchEventSub() {
+  if (!twitchTokens || !twitchTokens.refresh_token || !config.twitchClientId || !config.twitchClientSecret) {
+    updateTwitchStatus({ connected: false, status: 'disconnected', error: '' });
+    return;
+  }
+  twitchShouldReconnect = true;
+  if (twitchReconnectTimer) clearTimeout(twitchReconnectTimer);
+  updateTwitchStatus({ connected: false, status: 'connecting', username: twitchTokens.username || '', error: '' });
+  await connectTwitchWebSocket();
+}
+
+async function disconnectTwitch(clearTokens = true) {
+  twitchShouldReconnect = false;
+  clearTimeout(twitchReconnectTimer);
+  twitchReconnectTimer = null;
+  twitchSocketGeneration += 1;
+  const oldSocket = twitchSocket;
+  twitchSocket = null;
+  twitchSessionId = '';
+  if (oldSocket) {
+    try { oldSocket.close(1000, 'Disconnected by NoteLive Studio'); } catch {}
+  }
+  if (clearTokens) {
+    const token = twitchTokens && twitchTokens.access_token;
+    if (token && config.twitchClientId) {
+      try {
+        await fetch('https://id.twitch.tv/oauth2/revoke', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ client_id: config.twitchClientId, token })
+        });
+      } catch {}
+    }
+    twitchTokens = null;
+    try { fs.unlinkSync(TWITCH_TOKENS_FILE); } catch {}
+  }
+  updateTwitchStatus({ connected: false, status: 'disconnected', username: '', broadcasterId: '', error: '' });
+}
+
+function twitchCallbackPage(title, message, success = false) {
+  const color = success ? '#a970ff' : '#ff7587';
+  const escapeHtml = value => String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const safeTitle = escapeHtml(title || 'NoteLive Studio · Twitch');
+  const safeMessage = escapeHtml(message || '');
+  return '<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width">' +
+    '<title>' + safeTitle + '</title><body style="margin:0;background:#0b0d12;color:#f7f4ff;font:16px system-ui;display:grid;min-height:100vh;place-items:center">' +
+    '<main style="max-width:560px;padding:32px;border:1px solid #373143;border-radius:18px;background:#15151d">' +
+    '<div style="color:' + color + ';font-size:13px;font-weight:800;letter-spacing:.14em">NOTELIVE STUDIO / TWITCH</div>' +
+    '<h1 style="font-size:26px;margin-bottom:8px">' + safeTitle + '</h1><p style="color:#bbb5c8;line-height:1.65">' + safeMessage + '</p>' +
+    '<p style="color:#8d8797;font-size:13px">Puedes cerrar esta ventana y volver a NoteLive Studio.</p>' +
+    '<button onclick="window.close()" style="margin-top:10px;padding:10px 16px;border:0;border-radius:10px;background:' + color + ';color:#0d0915;font-weight:800;cursor:pointer">Cerrar ventana</button></main></body></html>';
+}
+
+
 const server = http.createServer(async (req, res) => {
   const requestUrl = new URL(req.url, `http://${HOST}:${PORT}`);
   const pathname = requestUrl.pathname;
