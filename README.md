@@ -28,7 +28,7 @@ La configuración y las credenciales se guardan en la carpeta de datos de NoteLi
 - **v0.3.1:** editor de notificación musical (estilo, posición, duración, colores, opacidad y elementos visibles), visualizador FFT real del audio de Windows para OBS (barras, onda, espejo o círculo) y mini overlay de escritorio opcional. La captura se inicia manualmente; el audio no se graba y solo se envían niveles al servidor local.
 - **v0.3.4:** diez estilos seleccionables para la notificación musical (Original, Aesthetic, Rhythm Inside, Mini Capsule, Neon Pulse, Retro EQ, Orbit, Cyberpunk, Mono Clean y Always On). Puedes colocar el visualizador dentro de la tarjeta o debajo y elegir entre notificación temporal o reproductor permanente. En el modo permanente solo se anima el contenido al cambiar de canción; el panel no se oculta.
 
-- Interfaz reorganizada en navegación lateral: Inicio, Twitch (apartado reservado), Spotify, TikTok LIVE, Voz IA, OBS y Personalizar.
+- Interfaz reorganizada en navegación lateral: Inicio, Twitch (chat, follows y overlays), Spotify, TikTok LIVE, Voz IA, OBS y Personalizar.
 - Fondo personalizable de la interfaz: importa una imagen local, la aplicación optimiza su tamaño, y permite ajustar el desenfoque, oscurecimiento, opacidad de los paneles, posición del wallpaper y color de acento. Los ajustes se guardan en el almacenamiento local de la instalación.
 
 - Spotify Web API mediante OAuth Authorization Code + PKCE.
@@ -37,6 +37,19 @@ La configuración y las credenciales se guardan en la carpeta de datos de NoteLi
 - Lector de comentarios mediante ElevenLabs, plantilla `{username} dice: {message}`, selector de voz, velocidad, límite de caracteres y antispam.
 - Página de audio transparente en `/tts` para la Browser Source de OBS.
 - Importación de configuración existente y almacenamiento separado de los archivos de instalación.
+
+## Primer uso de Twitch
+
+1. Abre [Twitch Developer Console](https://dev.twitch.tv/console/apps) y crea una aplicación para tu herramienta local.
+2. Añade como OAuth Redirect URL exactamente la dirección que muestra NoteLive Studio, por defecto: \`http://localhost:8787/twitch/callback\`.
+3. Copia el **Client ID** y el **Client Secret** a la sección Twitch de NoteLive Studio. El secreto queda en el archivo local de configuración y no se envía a las fuentes de navegador.
+4. Pulsa **Conectar cuenta Twitch** y autoriza los permisos de lectura del chat y los seguidores. NoteLive usa EventSub por WebSocket para recibir \`channel.follow\` y \`channel.chat.message\`.
+5. En OBS, añade fuentes de tipo **Navegador** con estas URL:
+   - Alertas de follow: \`http://127.0.0.1:8787/twitch-overlay\`
+   - Chat de Twitch: \`http://127.0.0.1:8787/twitch-chat-overlay\`
+   - Voz ElevenLabs: \`http://127.0.0.1:8787/tts\`
+
+La fuente de voz reutiliza los ajustes de ElevenLabs y la cola de voz existente. Mantén NoteLive Studio abierto durante el directo. Las credenciales y el token de Twitch se guardan localmente; el token está en \`twitch-tokens.json\` en modo desarrollo y en la carpeta de datos del usuario cuando se instala la aplicación.
 
 ## Primer uso de Spotify
 
