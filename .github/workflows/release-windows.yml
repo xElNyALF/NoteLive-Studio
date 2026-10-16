@@ -24,7 +24,7 @@ jobs:
         with:
           node-version: 22
 
-      - name: Create a single GitHub Release for this version
+      - name: Create or reuse a single GitHub Release for this version
         id: release
         shell: pwsh
         env:
@@ -36,13 +36,19 @@ jobs:
           } else {
             $tag = "v$($pkg.version)"
           }
-          $existing = gh release view $tag --json tagName 2>$null
-          if ($LASTEXITCODE -eq 0) {
+          $installerAsset = "NoteLive-Studio-Setup-$($pkg.version).exe"
+          $assets = gh release view $tag --json assets --jq ".assets[].name" 2>$null
+          $viewExit = $LASTEXITCODE
+          if ($viewExit -eq 0 -and ($assets -contains $installerAsset)) {
             "should_publish=false" >> $env:GITHUB_OUTPUT
-            Write-Host "Release $tag already exists; skipping to avoid replacing published assets."
+            Write-Host "The installer already exists in release $tag; skipping duplicate publication."
           } else {
-            gh release create $tag --target "$env:GITHUB_SHA" --title "NoteLive Studio $($pkg.version)" --notes "NoteLive Studio $($pkg.version) for Windows. Installer built by GitHub Actions."
-            if ($LASTEXITCODE -ne 0) { throw "Could not create GitHub Release $tag" }
+            if ($viewExit -ne 0) {
+              gh release create $tag --target "$env:GITHUB_SHA" --title "NoteLive Studio $($pkg.version)" --notes "NoteLive Studio $($pkg.version) for Windows. Installer built by GitHub Actions."
+              if ($LASTEXITCODE -ne 0) { throw "Could not create GitHub Release $tag" }
+            } else {
+              Write-Host "Release $tag exists but the installer is missing. It will be built and uploaded now."
+            }
             "should_publish=true" >> $env:GITHUB_OUTPUT
           }
 
