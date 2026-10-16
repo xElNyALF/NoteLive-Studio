@@ -1,7 +1,7 @@
 {
   "name": "notelive-studio",
   "productName": "NoteLive Studio",
-  "version": "0.3.9",
+  "version": "0.4.0",
   "private": true,
   "description": "Centro creativo personalizable para streaming: Spotify, Twitch, TikTok LIVE, Kick (próximamente), ElevenLabs y OBS, con alertas de follow configurables.",
   "main": "desktop/main.cjs",

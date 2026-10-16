@@ -233,6 +233,19 @@ footer { max-width: 1320px; margin: 27px auto 0; padding: 15px 2px 4px; display:
 }
 
 
+.twitch-device-flow-panel { margin: 18px 0 6px; padding: 17px; border: 1px solid rgba(169,112,255,.34); border-radius: 14px; background: linear-gradient(135deg, rgba(169,112,255,.10), rgba(0,0,0,.12)); }
+.twitch-device-flow-panel[hidden], #twitch-public-client-note[hidden], #twitch-legacy-config[hidden], #twitch-save-connection[hidden] { display: none !important; }
+.device-flow-copy strong { display: block; margin-bottom: 5px; color: var(--text); font-size: 13px; }
+.device-flow-copy p { margin: 0; font-size: 11px; line-height: 1.55; }
+.twitch-device-code-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin: 14px 0; padding: 13px 14px; border: 1px solid var(--stroke); border-radius: 11px; background: rgba(0,0,0,.24); }
+.twitch-device-code-row code { color: #e3d3ff; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: clamp(20px, 3vw, 28px); font-weight: 850; letter-spacing: .16em; }
+.twitch-device-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; }
+.twitch-device-flow-panel .field-hint { display: block; margin-top: 12px; line-height: 1.5; }
+@media (max-width: 560px) {
+  .twitch-device-code-row { align-items: stretch; flex-direction: column; }
+  .twitch-device-code-row .button, .twitch-device-actions .button { width: 100%; justify-content: center; }
+}
+
 /* Unified chat: platform identity, readable message rows and native emotes */
 .unified-chat-intro .platform-large-icon { color: #bda4ff; background: rgba(151,107,255,.13); }
 .unified-chat-panel, .unified-overlay-panel { margin-bottom: 18px; }

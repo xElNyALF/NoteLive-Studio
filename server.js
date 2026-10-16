@@ -21,6 +21,9 @@ const TOKENS_FILE = path.join(DATA_DIR, 'tokens.json');
 const TWITCH_TOKENS_FILE = path.join(DATA_DIR, 'twitch-tokens.json');
 const REDIRECT_URI = `http://${HOST}:${PORT}/callback`;
 const TWITCH_REDIRECT_URI = `http://localhost:${PORT}/twitch/callback`;
+const TWITCH_PUBLIC_CLIENT_ID = String(process.env.NOTE_LIVE_TWITCH_PUBLIC_CLIENT_ID || '').trim();
+const USE_TWITCH_PUBLIC_CLIENT = process.env.NOTE_LIVE_TWITCH_PUBLIC_CLIENT === '1' && TWITCH_PUBLIC_CLIENT_ID.length >= 8;
+const TWITCH_DEVICE_SCOPES = 'moderator:read:followers user:read:chat';
 const AUTHORIZE_URL = 'https://accounts.spotify.com/authorize';
 const TOKEN_URL = 'https://accounts.spotify.com/api/token';
 const CURRENTLY_PLAYING_URL = 'https://api.spotify.com/v1/me/player/currently-playing?additional_types=track,episode';
@@ -194,8 +197,14 @@ function cleanConfigText(value, maxLength, fallback) {
 let config = loadConfig();
 let tokens = loadTokens();
 let twitchTokens = loadTwitchTokens();
+if (USE_TWITCH_PUBLIC_CLIENT && twitchTokens && twitchTokens.clientId !== config.twitchClientId) {
+  // A token from a different Twitch application cannot be refreshed with this public Client ID.
+  try { fs.unlinkSync(TWITCH_TOKENS_FILE); } catch {}
+  twitchTokens = null;
+}
 let pendingAuth = new Map();
 let pendingTwitchAuth = new Map();
+let pendingTwitchDeviceAuth = null;
 let twitchSocket = null;
 let twitchReconnectTimer = null;
 let twitchSocketGeneration = 0;
@@ -240,8 +249,8 @@ function loadConfig() {
   return {
     clientId: typeof data.clientId === 'string' ? data.clientId.trim() : '',
     tiktokUsername: typeof data.tiktokUsername === 'string' ? data.tiktokUsername.trim().replace(/^@/, '') : '',
-    twitchClientId: typeof data.twitchClientId === 'string' ? data.twitchClientId.trim() : '',
-    twitchClientSecret: typeof data.twitchClientSecret === 'string' ? data.twitchClientSecret.trim() : '',
+    twitchClientId: USE_TWITCH_PUBLIC_CLIENT ? TWITCH_PUBLIC_CLIENT_ID : (typeof data.twitchClientId === 'string' ? data.twitchClientId.trim() : ''),
+    twitchClientSecret: USE_TWITCH_PUBLIC_CLIENT ? '' : (typeof data.twitchClientSecret === 'string' ? data.twitchClientSecret.trim() : ''),
     twitchReadChat: data.twitchReadChat !== false,
     twitchAlert: normalizeTwitchAlertConfig(data.twitchAlert),
     twitchChatOverlay: normalizeTwitchChatConfig(data.twitchChatOverlay),
@@ -385,7 +394,7 @@ function publicStatus() {
     playback: playbackState,
     overlay: config.overlay,
     audioVisualizerActive: audioVisualizerState.active,
-    twitch: { ...twitchStatus, clientId: config.twitchClientId || '', authorized: Boolean(twitchTokens && twitchTokens.refresh_token), hasClientId: Boolean(config.twitchClientId), hasClientSecret: Boolean(config.twitchClientSecret), redirectUri: TWITCH_REDIRECT_URI, readChat: config.twitchReadChat !== false, alertConfig: config.twitchAlert, chatConfig: config.twitchChatOverlay, alertUrl: `http://${HOST}:${PORT}/twitch-overlay`, chatOverlayUrl: `http://${HOST}:${PORT}/twitch-chat-overlay`, history: recentTwitchChatMessages.slice(0, 30), recentAlert: recentTwitchAlert },
+    twitch: { ...twitchStatus, clientId: config.twitchClientId || '', publicClient: USE_TWITCH_PUBLIC_CLIENT, authorized: Boolean(twitchTokens && twitchTokens.refresh_token), hasClientId: Boolean(config.twitchClientId), hasClientSecret: Boolean(config.twitchClientSecret), redirectUri: TWITCH_REDIRECT_URI, readChat: config.twitchReadChat !== false, alertConfig: config.twitchAlert, chatConfig: config.twitchChatOverlay, alertUrl: `http://${HOST}:${PORT}/twitch-overlay`, chatOverlayUrl: `http://${HOST}:${PORT}/twitch-chat-overlay`, history: recentTwitchChatMessages.slice(0, 30), recentAlert: recentTwitchAlert },
     tiktok: { ...tiktokStatus, username: tiktokStatus.username || config.tiktokUsername || '' },
     chatHistory: recentChatMessages.slice(0, 30),
     unifiedChat: { history: recentUnifiedChatMessages.slice(0, 80), platforms: getUnifiedChatPlatforms(), config: config.unifiedChat, voiceCommand: config.twitchVoiceCommand, overlayUrl: `http://${HOST}:${PORT}/unified-chat-overlay` },
@@ -899,28 +908,32 @@ function twitchApiHeaders(accessToken) {
 }
 
 async function refreshTwitchAccessToken() {
-  if (!config.twitchClientId || !config.twitchClientSecret || !twitchTokens || !twitchTokens.refresh_token) {
+  if (!config.twitchClientId || (!USE_TWITCH_PUBLIC_CLIENT && !config.twitchClientSecret) || !twitchTokens || !twitchTokens.refresh_token) {
     throw new Error('Vuelve a conectar Twitch para renovar el permiso.');
   }
+  const params = new URLSearchParams({
+    client_id: config.twitchClientId,
+    grant_type: 'refresh_token',
+    refresh_token: twitchTokens.refresh_token
+  });
+  // Public Twitch clients must not ship or send a Client Secret. Device-flow
+  // refresh tokens rotate on every use, so persist the newly returned token.
+  if (!USE_TWITCH_PUBLIC_CLIENT && config.twitchClientSecret) params.set('client_secret', config.twitchClientSecret);
   const response = await fetch('https://id.twitch.tv/oauth2/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      client_id: config.twitchClientId,
-      client_secret: config.twitchClientSecret,
-      grant_type: 'refresh_token',
-      refresh_token: twitchTokens.refresh_token
-    })
+    body: params
   });
   const body = await response.json().catch(() => ({}));
-  if (!response.ok || !body.access_token) {
-    throw new Error('Twitch ya no acepta la sesión guardada. Desconecta y vuelve a conectar la cuenta.');
+  if (!response.ok || !body.access_token || !body.refresh_token) {
+    throw new Error('Twitch ya no acepta la sesión guardada. Vuelve a conectar la cuenta.');
   }
   twitchTokens = {
     ...twitchTokens,
     ...body,
     userId: twitchTokens.userId,
     username: twitchTokens.username,
+    login: twitchTokens.login,
     clientId: config.twitchClientId,
     expires_at: Date.now() + Number(body.expires_in || 14400) * 1000
   };
@@ -1161,7 +1174,7 @@ async function connectTwitchWebSocket(url = 'wss://eventsub.wss.twitch.tv/ws', i
 }
 
 async function startTwitchEventSub() {
-  if (!twitchTokens || !twitchTokens.refresh_token || !config.twitchClientId || !config.twitchClientSecret) {
+  if (!twitchTokens || !twitchTokens.refresh_token || !config.twitchClientId || (!USE_TWITCH_PUBLIC_CLIENT && !config.twitchClientSecret)) {
     updateTwitchStatus({ connected: false, status: 'disconnected', error: '' });
     return;
   }
@@ -1172,6 +1185,7 @@ async function startTwitchEventSub() {
 }
 
 async function disconnectTwitch(clearTokens = true) {
+  pendingTwitchDeviceAuth = null;
   twitchShouldReconnect = false;
   clearTimeout(twitchReconnectTimer);
   twitchReconnectTimer = null;
@@ -1197,6 +1211,90 @@ async function disconnectTwitch(clearTokens = true) {
     try { fs.unlinkSync(TWITCH_TOKENS_FILE); } catch {}
   }
   updateTwitchStatus({ connected: false, status: 'disconnected', username: '', broadcasterId: '', error: '' });
+}
+
+async function pollTwitchDeviceAuthorization(flow) {
+  while (pendingTwitchDeviceAuth === flow && Date.now() < flow.expiresAt) {
+    await new Promise(resolve => setTimeout(resolve, flow.interval * 1000));
+    if (pendingTwitchDeviceAuth !== flow) return;
+
+    let response;
+    let body;
+    try {
+      response = await fetch('https://id.twitch.tv/oauth2/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id: config.twitchClientId,
+          scopes: TWITCH_DEVICE_SCOPES,
+          device_code: flow.deviceCode,
+          grant_type: 'urn:ietf:params:oauth:grant-type:device_code'
+        })
+      });
+      body = await response.json().catch(() => ({}));
+    } catch (error) {
+      throw new Error('No se pudo comprobar la autorización de Twitch. Comprueba tu conexión a Internet.');
+    }
+
+    // A cancellation or newer authorization flow may have replaced this request
+    // while the network call was in flight.
+    if (pendingTwitchDeviceAuth !== flow) return;
+
+    if (response.ok && body.access_token && body.refresh_token) {
+      const user = await getTwitchCurrentUser(body.access_token);
+      if (pendingTwitchDeviceAuth !== flow) return;
+      twitchTokens = {
+        ...body,
+        userId: user.id,
+        username: user.display_name || user.login,
+        login: user.login,
+        clientId: config.twitchClientId,
+        expires_at: Date.now() + Number(body.expires_in || 14400) * 1000
+      };
+      persistJson(TWITCH_TOKENS_FILE, twitchTokens);
+      pendingTwitchDeviceAuth = null;
+      updateTwitchStatus({
+        connected: false,
+        status: 'connecting',
+        username: twitchTokens.username,
+        broadcasterId: user.id,
+        error: ''
+      });
+      startTwitchEventSub().catch(error => {
+        updateTwitchStatus({
+          connected: false,
+          status: 'error',
+          username: twitchTokens && twitchTokens.username || '',
+          error: cleanText(error.message, 240)
+        });
+      });
+      return;
+    }
+
+    const errorCode = String(body.error || body.message || '').toLowerCase();
+    if (errorCode === 'authorization_pending') continue;
+    if (errorCode === 'slow_down' || response.status === 429) {
+      flow.interval += 5;
+      continue;
+    }
+    if (errorCode === 'authorization_declined' || errorCode === 'access_denied') {
+      throw new Error('La autorización fue rechazada en Twitch. Puedes intentarlo de nuevo.');
+    }
+    if (errorCode === 'expired_token' || errorCode.includes('expired') || errorCode.includes('invalid device code')) {
+      throw new Error('El código de Twitch venció. Pulsa “Conectar cuenta Twitch” para generar otro.');
+    }
+    throw new Error(cleanText(body.message || body.error_description || body.error || 'Twitch no pudo completar la autorización.', 220));
+  }
+
+  if (pendingTwitchDeviceAuth === flow) {
+    pendingTwitchDeviceAuth = null;
+    updateTwitchStatus({
+      connected: false,
+      status: 'error',
+      username: '',
+      error: 'El código de autorización venció. Pulsa “Conectar cuenta Twitch” para generar uno nuevo.'
+    });
+  }
 }
 
 function twitchCallbackPage(title, message, success = false) {
@@ -1247,6 +1345,9 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (req.method === 'GET' && pathname === '/twitch/connect') {
+    if (USE_TWITCH_PUBLIC_CLIENT) {
+      return sendText(res, 400, 'Vuelve a NoteLive Studio y pulsa “Conectar cuenta Twitch” para autorizar mediante código.');
+    }
     if (!config.twitchClientId || !config.twitchClientSecret) {
       return sendText(res, 400, 'Abre NoteLive Studio, guarda primero el Twitch Client ID y Client Secret y vuelve a pulsar Conectar Twitch.');
     }
@@ -1321,6 +1422,73 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
+  if (req.method === 'POST' && pathname === '/api/twitch/device/start') {
+    try {
+      if (!USE_TWITCH_PUBLIC_CLIENT || !config.twitchClientId) {
+        return sendJson(res, 400, { error: 'La autorización mediante código no está configurada en esta versión.' });
+      }
+      if (twitchTokens && twitchTokens.refresh_token) {
+        return sendJson(res, 409, { error: 'Ya hay una cuenta de Twitch autorizada. Desconéctala antes de cambiar de cuenta.' });
+      }
+      if (pendingTwitchDeviceAuth && Date.now() < pendingTwitchDeviceAuth.expiresAt) {
+        return sendJson(res, 409, { error: 'Ya hay un código de autorización activo. Termina ese proceso o cancélalo primero.' });
+      }
+      const response = await fetch('https://id.twitch.tv/oauth2/device', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id: config.twitchClientId,
+          scopes: TWITCH_DEVICE_SCOPES
+        })
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || !body.device_code || !body.user_code || !body.verification_uri) {
+        return sendJson(res, 502, { error: cleanText(body.message || body.error_description || body.error || 'Twitch no pudo generar el código de autorización.', 220) });
+      }
+
+      const verificationUrl = new URL(body.verification_uri);
+      if (verificationUrl.protocol !== 'https:' || !['www.twitch.tv', 'twitch.tv'].includes(verificationUrl.hostname)) {
+        return sendJson(res, 502, { error: 'Twitch devolvió una URL de autorización no válida.' });
+      }
+
+      const flow = {
+        deviceCode: String(body.device_code),
+        userCode: String(body.user_code),
+        verificationUri: verificationUrl.toString(),
+        interval: Math.max(5, Number(body.interval) || 5),
+        expiresAt: Date.now() + Math.max(60, Number(body.expires_in) || 1800) * 1000
+      };
+      pendingTwitchDeviceAuth = flow;
+      updateTwitchStatus({ connected: false, status: 'authorizing', username: '', broadcasterId: '', error: '' });
+      pollTwitchDeviceAuthorization(flow).catch(error => {
+        if (pendingTwitchDeviceAuth !== flow) return;
+        pendingTwitchDeviceAuth = null;
+        updateTwitchStatus({
+          connected: false,
+          status: 'error',
+          username: '',
+          broadcasterId: '',
+          error: cleanText(error.message || error, 240)
+        });
+      });
+      return sendJson(res, 200, {
+        ok: true,
+        userCode: flow.userCode,
+        verificationUri: flow.verificationUri,
+        expiresIn: Math.max(60, Number(body.expires_in) || 1800),
+        interval: flow.interval
+      });
+    } catch (error) {
+      return sendJson(res, 502, { error: error.message || 'No se pudo iniciar la autorización de Twitch.' });
+    }
+  }
+
+  if (req.method === 'POST' && pathname === '/api/twitch/device/cancel') {
+    pendingTwitchDeviceAuth = null;
+    updateTwitchStatus({ connected: false, status: 'disconnected', username: '', broadcasterId: '', error: '' });
+    return sendJson(res, 200, { ok: true, twitch: publicStatus().twitch });
+  }
+
   if (req.method === 'POST' && pathname === '/api/twitch/config') {
     try {
       const body = await readRequestJson(req);
@@ -1334,8 +1502,12 @@ const server = http.createServer(async (req, res) => {
       if (enteredClientSecret && (enteredClientSecret.length < 8 || enteredClientSecret.length > 256)) {
         return sendJson(res, 400, { error: 'El Client Secret parece incompleto.' });
       }
-      const nextClientId = body.clearCredentials === true ? '' : (enteredClientId || oldClientId);
-      const nextClientSecret = body.clearCredentials === true ? '' : (enteredClientSecret || oldClientSecret);
+      const nextClientId = USE_TWITCH_PUBLIC_CLIENT
+        ? TWITCH_PUBLIC_CLIENT_ID
+        : (body.clearCredentials === true ? '' : (enteredClientId || oldClientId));
+      const nextClientSecret = USE_TWITCH_PUBLIC_CLIENT
+        ? ''
+        : (body.clearCredentials === true ? '' : (enteredClientSecret || oldClientSecret));
       const credentialsChanged = nextClientId !== oldClientId || nextClientSecret !== oldClientSecret;
       if (credentialsChanged && twitchTokens) await disconnectTwitch(true);
       config.twitchClientId = nextClientId;
@@ -1874,7 +2046,7 @@ function startServer() {
       console.log(`Overlay: ${`http://${HOST}:${PORT}/overlay`}`);
       console.log(`Redirect URI de Spotify: ${REDIRECT_URI}\n`);
       schedulePoll(0);
-      if (twitchTokens && config.twitchClientId && config.twitchClientSecret) {
+      if (twitchTokens && config.twitchClientId && (USE_TWITCH_PUBLIC_CLIENT || config.twitchClientSecret)) {
         startTwitchEventSub().catch(error => updateTwitchStatus({ connected: false, status: 'error', error: cleanText(error.message, 240) }));
       }
       resolve(server);
