@@ -2,6 +2,7 @@
 
 const list = document.querySelector('#chat-list');
 const seen = new Set();
+let latestItems = [];
 let chatConfig = {
   fontFamily: 'modern', fontSize: 15, usernameColor: '#f3f5fa', messageColor: '#e7ebf2',
   twitchAccent: '#b58aff', tiktokAccent: '#50e5c1', backgroundOpacity: 88, maxMessages: 8,
@@ -42,7 +43,8 @@ function applyConfig(input = {}) {
   root.style.setProperty('--tiktok', chatConfig.tiktokAccent || '#50e5c1');
   root.style.setProperty('--chat-background-opacity', String(Math.max(0.25, Math.min(1, Number(chatConfig.backgroundOpacity || 88) / 100))));
   document.body.dataset.compact = String(chatConfig.compact === true);
-  trimMessages();
+  if (latestItems.length) renderHistory(latestItems);
+  else trimMessages();
 }
 
 function makeAvatar(item) {
@@ -115,6 +117,8 @@ function appendRoleBadges(target, item) {
 function addMessage(item) {
   if (!item || !item.id || seen.has(item.id)) return;
   seen.add(item.id);
+  latestItems.push(item);
+  if (latestItems.length > 120) latestItems = latestItems.slice(-120);
   if (seen.size > 400) seen.clear();
   const empty = list.querySelector('.chat-empty');
   if (empty) empty.remove();
@@ -171,9 +175,11 @@ function trimMessages() {
 }
 
 function renderHistory(items = []) {
+  const ordered = items.slice(0, 120).sort((a, b) => Number(a.timestamp || 0) - Number(b.timestamp || 0)).slice(-Math.max(3, Math.min(12, Number(chatConfig.maxMessages) || 8)));
   list.replaceChildren();
   seen.clear();
-  items.slice(0, 120).sort((a, b) => Number(a.timestamp || 0) - Number(b.timestamp || 0)).slice(-Math.max(3, Math.min(12, Number(chatConfig.maxMessages) || 8))).forEach(addMessage);
+  latestItems = [];
+  ordered.forEach(addMessage);
 }
 
 function updateMessage(packet) {
