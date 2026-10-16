@@ -604,7 +604,7 @@ function serveAsset(res, assetName, contentType) {
 
 function updateTwitchStatus(next) {
   twitchStatus = { ...twitchStatus, ...next };
-  publishTwitchEvent({ type: 'status', status: { ...twitchStatus } });
+  publishTwitchEvent({ type: 'status', status: publicStatus().twitch });
 }
 
 function twitchApiHeaders(accessToken) {
