@@ -152,10 +152,12 @@ const sseClients = new Set();
 const tiktokSseClients = new Set();
 const overlaySseClients = new Set();
 const twitchSseClients = new Set();
+const unifiedChatSseClients = new Set();
 let audioVisualizerState = { active: false, levels: Array(32).fill(0), rms: 0, updatedAt: Date.now() };
 let tiktokConnection = null;
 let tiktokStatus = { connected: false, status: 'disconnected', username: config.tiktokUsername || '', error: '' };
 let recentChatMessages = [];
+let recentUnifiedChatMessages = [];
 const duplicateChatCache = new Map();
 const userSpeechHistory = new Map();
 
@@ -272,6 +274,7 @@ function publicStatus() {
     twitch: { ...twitchStatus, clientId: config.twitchClientId || '', authorized: Boolean(twitchTokens && twitchTokens.refresh_token), hasClientId: Boolean(config.twitchClientId), hasClientSecret: Boolean(config.twitchClientSecret), redirectUri: TWITCH_REDIRECT_URI, readChat: config.twitchReadChat !== false, alertConfig: config.twitchAlert, chatConfig: config.twitchChatOverlay, alertUrl: `http://${HOST}:${PORT}/twitch-overlay`, chatOverlayUrl: `http://${HOST}:${PORT}/twitch-chat-overlay`, history: recentTwitchChatMessages.slice(0, 30), recentAlert: recentTwitchAlert },
     tiktok: { ...tiktokStatus, username: tiktokStatus.username || config.tiktokUsername || '' },
     chatHistory: recentChatMessages.slice(0, 30),
+    unifiedChat: { history: recentUnifiedChatMessages.slice(0, 80), platforms: getUnifiedChatPlatforms(), overlayUrl: `http://${HOST}:${PORT}/unified-chat-overlay` },
     voice: {
       hasApiKey: Boolean(config.elevenLabsApiKey),
       voiceId: config.elevenLabsVoiceId || '',
@@ -299,6 +302,9 @@ function publishTikTokEvent(payload) {
   for (const client of tiktokSseClients) {
     try { client.write(packet); } catch { tiktokSseClients.delete(client); }
   }
+  if (payload && payload.type === 'status') {
+    publishUnifiedChatEvent({ type: 'status', platforms: getUnifiedChatPlatforms() });
+  }
 }
 
 function publishOverlayEvent(packet) {
@@ -312,6 +318,60 @@ function publishTwitchEvent(packet) {
   const data = 'data: ' + JSON.stringify(packet) + '\n\n';
   for (const client of twitchSseClients) {
     try { client.write(data); } catch { twitchSseClients.delete(client); }
+  }
+  if (packet && packet.type === 'status') {
+    publishUnifiedChatEvent({ type: 'status', platforms: getUnifiedChatPlatforms() });
+  }
+}
+
+function getUnifiedChatPlatforms() {
+  return {
+    tiktok: { connected: Boolean(tiktokStatus.connected), status: tiktokStatus.status || 'disconnected', username: tiktokStatus.username || config.tiktokUsername || '' },
+    twitch: { connected: Boolean(twitchStatus.connected), status: twitchStatus.status || 'disconnected', username: twitchStatus.username || '' }
+  };
+}
+
+function publishUnifiedChatEvent(payload) {
+  const data = 'data: ' + JSON.stringify(payload) + '\n\n';
+  for (const client of unifiedChatSseClients) {
+    try { client.write(data); } catch { unifiedChatSseClients.delete(client); }
+  }
+}
+
+function publishUnifiedChatMessage(item) {
+  if (!item || !item.id) return;
+  recentUnifiedChatMessages.unshift(item);
+  recentUnifiedChatMessages = recentUnifiedChatMessages.slice(0, 120);
+  publishUnifiedChatEvent({ type: 'chat', message: item });
+}
+
+function makeTwitchChatSegments(event, fallbackComment) {
+  const fragments = Array.isArray(event && event.message && event.message.fragments) ? event.message.fragments : [];
+  if (!fragments.length) return [{ type: 'text', text: fallbackComment || '' }];
+  return fragments.slice(0, 100).map(fragment => {
+    const text = cleanText(fragment && fragment.text || '', 500);
+    const emote = fragment && fragment.emote;
+    if (fragment && fragment.type === 'emote' && emote && /^[A-Za-z0-9_-]{1,80}$/.test(String(emote.id || ''))) {
+      const format = Array.isArray(emote.format) && emote.format.includes('animated') ? 'animated' : 'default';
+      return {
+        type: 'emote',
+        text,
+        alt: text || 'Twitch emote',
+        url: `https://static-cdn.jtvnw.net/emoticons/v2/${encodeURIComponent(emote.id)}/${format}/dark/2.0`
+      };
+    }
+    return { type: 'text', text };
+  }).filter(segment => segment.type === 'emote' || segment.text);
+}
+
+function trustedTikTokEmoteUrl(value) {
+  try {
+    const url = new URL(String(value || ''));
+    if (url.protocol !== 'https:') return '';
+    const host = url.hostname.toLowerCase();
+    return host === 'tiktokcdn.com' || host.endsWith('.tiktokcdn.com') ? url.href : '';
+  } catch {
+    return '';
   }
 }
 
@@ -377,6 +437,9 @@ function handleTikTokChat(data) {
     id: crypto.randomUUID(),
     username,
     comment,
+    platform: 'tiktok',
+    messageType: 'chat',
+    segments: [{ type: 'text', text: comment }],
     speakText: shouldSpeak ? formatVoiceText(username, comment) : '',
     shouldSpeak,
     timestamp: Date.now()
@@ -384,6 +447,28 @@ function handleTikTokChat(data) {
   recentChatMessages.unshift(entry);
   recentChatMessages = recentChatMessages.slice(0, 50);
   publishTikTokEvent({ type: 'chat', message: entry });
+  publishUnifiedChatMessage(entry);
+}
+
+function handleTikTokEmote(data) {
+  const user = data && data.user || {};
+  const username = cleanText(user.nickname || user.uniqueId || data && (data.nickname || data.uniqueId) || 'Usuario', 64) || 'Usuario';
+  const url = trustedTikTokEmoteUrl(data && (data.emoteImageUrl || data.imageUrl) || data && data.emoteList && data.emoteList[0] && (data.emoteList[0].emoteImageUrl || data.emoteList[0].imageUrl));
+  const entry = {
+    id: String(data && (data.msgId || data.messageId || data.emoteId) || crypto.randomUUID()),
+    username,
+    comment: url ? '' : 'Envió un sticker',
+    platform: 'tiktok',
+    messageType: 'emote',
+    segments: url ? [{ type: 'image', url, alt: 'Sticker de TikTok' }] : [{ type: 'text', text: 'Envió un sticker' }],
+    speakText: '',
+    shouldSpeak: false,
+    timestamp: Date.now()
+  };
+  recentChatMessages.unshift(entry);
+  recentChatMessages = recentChatMessages.slice(0, 50);
+  publishTikTokEvent({ type: 'chat', message: entry });
+  publishUnifiedChatMessage(entry);
 }
 
 async function createElevenLabsSpeech(text) {
@@ -728,6 +813,8 @@ function handleTwitchChat(event) {
     speakText: shouldSpeak ? formatVoiceText(username, comment) : '',
     shouldSpeak,
     platform: 'twitch',
+    messageType: 'chat',
+    segments: makeTwitchChatSegments(event, comment),
     isModerator: badges.some(badge => badge.set_id === 'moderator'),
     isSubscriber: badges.some(badge => badge.set_id === 'subscriber'),
     isVip: badges.some(badge => badge.set_id === 'vip')
@@ -735,6 +822,7 @@ function handleTwitchChat(event) {
   recentTwitchChatMessages.unshift(item);
   recentTwitchChatMessages = recentTwitchChatMessages.slice(0, 50);
   publishTwitchEvent({ type: 'chat', message: item });
+  publishUnifiedChatMessage(item);
 }
 
 async function connectTwitchWebSocket(url = 'wss://eventsub.wss.twitch.tv/ws', isReconnect = false) {
@@ -1069,6 +1157,31 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (req.method === 'GET' && pathname === '/api/chat/events') {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no'
+    });
+    const history = recentUnifiedChatMessages.slice(0, 120);
+    res.write('data: ' + JSON.stringify({
+      type: 'init',
+      history,
+      platforms: getUnifiedChatPlatforms(),
+      overlayUrl: `http://${HOST}:${PORT}/unified-chat-overlay`
+    }) + '\n\n');
+    unifiedChatSseClients.add(res);
+    const heartbeat = setInterval(() => {
+      try { res.write(': keep-alive\n\n'); } catch { clearInterval(heartbeat); }
+    }, 25000);
+    req.on('close', () => {
+      clearInterval(heartbeat);
+      unifiedChatSseClients.delete(res);
+    });
+    return;
+  }
+
   if (req.method === 'GET' && pathname === '/') {
     return serveAsset(res, 'index.html', 'text/html; charset=utf-8');
   }
@@ -1077,6 +1190,15 @@ const server = http.createServer(async (req, res) => {
   }
   if (req.method === 'GET' && pathname === '/app.js') {
     return serveAsset(res, 'app.js', 'text/javascript; charset=utf-8');
+  }
+  if (req.method === 'GET' && pathname === '/unified-chat-overlay') {
+    return serveAsset(res, 'unified-chat-overlay.html', 'text/html; charset=utf-8');
+  }
+  if (req.method === 'GET' && pathname === '/unified-chat-overlay.js') {
+    return serveAsset(res, 'unified-chat-overlay.js', 'text/javascript; charset=utf-8');
+  }
+  if (req.method === 'GET' && pathname === '/unified-chat-overlay.css') {
+    return serveAsset(res, 'unified-chat-overlay.css', 'text/css; charset=utf-8');
   }
   if (req.method === 'GET' && pathname === '/overlay.js') {
     return serveAsset(res, 'overlay.js', 'text/javascript; charset=utf-8');
@@ -1247,6 +1369,7 @@ const server = http.createServer(async (req, res) => {
       const connection = new TikTokLiveConnection(username);
       tiktokConnection = connection;
       connection.on(WebcastEvent.CHAT, data => handleTikTokChat(data));
+      if (WebcastEvent?.EMOTE) connection.on(WebcastEvent.EMOTE, data => handleTikTokEmote(data));
       if (ControlEvent?.ERROR) connection.on(ControlEvent.ERROR, error => {
         if (tiktokConnection !== connection) return;
         tiktokStatus = { ...tiktokStatus, error: cleanText(error?.message || error || 'Error del conector de TikTok.', 220) };
@@ -1474,6 +1597,10 @@ async function stopServer() {
     try { client.end(); } catch {}
   }
   twitchSseClients.clear();
+  for (const client of unifiedChatSseClients) {
+    try { client.end(); } catch {}
+  }
+  unifiedChatSseClients.clear();
   if (server.listening) {
     await new Promise(resolve => server.close(() => resolve()));
   }
