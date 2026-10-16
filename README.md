@@ -9,7 +9,7 @@ El ZIP contiene el código fuente y los scripts de compilación, no un instalado
 1. Instala Node.js 22.12 o posterior desde https://nodejs.org/ si no lo tienes.
 2. Descomprime la carpeta `notelive-studio` en una ubicación local, no dentro de una carpeta temporal.
 3. Ejecuta `BUILD-WINDOWS.bat` y espera a que termine la instalación de dependencias y la compilación. Requiere conexión a Internet la primera vez.
-4. El instalador aparecerá en `dist\NoteLive-Studio-Setup-0.3.7.exe`.
+4. El instalador aparecerá en `dist\NoteLive-Studio-Setup-0.3.8.exe`.
 5. Ejecuta el instalador y abre NoteLive Studio desde el acceso directo del escritorio o el menú Inicio. El programa instalado no necesita que abras la terminal ni que ejecutes `start.bat`.
 
 `start.bat` es para ejecutar el código fuente en modo desarrollo; no es el modo recomendado una vez instalado el programa.
@@ -22,6 +22,7 @@ La configuración y las credenciales se guardan en la carpeta de datos de NoteLi
 
 ## Funciones
 
+- **v0.3.8:** el chat general y el overlay de OBS muestran un icono junto a la etiqueta TWITCH/TIKTOK LIVE para identificar el origen de cada mensaje. El actualizador tiene una barra de progreso integrada y muestra “Listo, reinicia para instalar” con un botón de reinicio. Se añade una sección informativa de Kick marcada como “Próximamente”; no implica que Kick ya esté conectado.
 - **v0.3.7:** personalización del chat general con ocho tipografías, tamaño y colores de texto, opacidad, número de mensajes y controles para ocultar avatares, insignias, etiquetas y hora. Muestra avatares circulares de Twitch/TikTok, iconos de streamer, moderador, VIP, suscriptor y etiqueta `TÚ`. Añade el comando de voz `!voice` para leer una frase elegida con ElevenLabs y una opción para permitir moderadores.
 - **v0.3.6:** chat general que reúne Twitch y TikTok LIVE, etiqueta cada mensaje con su plataforma, muestra los emotes de Twitch como imágenes y admite stickers de TikTok cuando el conector los entrega. Incluye una fuente de Navegador combinada para OBS en `http://127.0.0.1:8787/unified-chat-overlay` y filtros para ver todas las plataformas o solo una.
 - **v0.3.5:** integración de Twitch con OAuth, EventSub WebSocket para `channel.follow` y `channel.chat.message`, alerta de follow personalizable, overlay de chat separado para OBS y lectura opcional del chat mediante la fuente de ElevenLabs `/tts`. Requiere registrar una app de Twitch y añadir la URL de redirección `http://localhost:8787/twitch/callback`.
@@ -100,7 +101,7 @@ La compilación incluye Electron y sus dependencias; el instalador puede ocupar 
 
 ## Actualizaciones automáticas (configuración inicial)
 
-NoteLive Studio incluye `electron-updater`, pero los updates solo funcionan una vez publicado el instalador y configurado un feed real. Consulta `.github/RELEASE-INSTRUCTIONS.md`. Se debe configurar el propietario del repositorio tanto en `update-config.json` como en `package.json` (`build.publish`). La app instalada comprueba actualizaciones al arrancar y cada seis horas; descarga el paquete y solicita reiniciar cuando está listo. El feed sencillo usa GitHub Releases público.
+NoteLive Studio incluye `electron-updater`, pero los updates solo funcionan una vez publicado el instalador y configurado un feed real. Consulta `.github/RELEASE-INSTRUCTIONS.md`. Se debe configurar el propietario del repositorio tanto en `update-config.json` como en `package.json` (`build.publish`). La app instalada comprueba actualizaciones al arrancar y cada seis horas. Al buscar manualmente verás el estado en el panel, con el progreso de descarga y un botón “Reiniciar para instalar” cuando esté listo. El feed sencillo usa GitHub Releases público.
 
 
 ### Importante si ya instalaste la 0.3.0 anterior
