@@ -1,0 +1,19 @@
+:root { color-scheme:dark;--twitch-accent:#a970ff;--chat-background:.82;--chat-font-size:17px;--text:#fcf9ff;--muted:#c5bdd4; }
+* { box-sizing:border-box; }
+html,body { margin:0;width:100%;height:100%;overflow:hidden;background:transparent!important; }
+body { color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased; }
+.twitch-chat-root { width:100%;height:100%;padding:8px;overflow:hidden;background:transparent; }
+.twitch-chat-root[hidden] { display:none!important; }
+.twitch-chat-list { display:flex;flex-direction:column;justify-content:flex-end;gap:8px;width:100%;height:100%;overflow:hidden; }
+.twitch-message { position:relative;padding:10px 13px;border:1px solid rgba(255,255,255,.12);border-left:3px solid var(--twitch-accent);border-radius:11px;background:rgba(12,13,20,var(--chat-background));box-shadow:0 9px 27px rgba(0,0,0,.24);backdrop-filter:blur(10px);animation:message-enter .36s cubic-bezier(.2,.85,.3,1) both;overflow:hidden; }
+.twitch-message-meta { display:flex;align-items:center;flex-wrap:wrap;gap:7px;margin-bottom:3px; }
+.twitch-message-user { color:var(--twitch-accent);font-size:calc(var(--chat-font-size) * .86);font-weight:850;line-height:1.2;overflow-wrap:anywhere; }
+.twitch-message-text { margin:0;color:var(--text);font-size:var(--chat-font-size);line-height:1.34;overflow-wrap:anywhere;white-space:pre-wrap; }
+.twitch-message-time { margin-left:auto;color:var(--muted);font-size:10px;font-variant-numeric:tabular-nums; }
+.twitch-badge { display:inline-flex;align-items:center;padding:2px 5px;border-radius:4px;border:1px solid color-mix(in srgb,var(--twitch-accent) 38%,transparent);color:var(--twitch-accent);font-size:8px;font-weight:900;letter-spacing:.08em; }
+.twitch-chat-root[data-compact="true"] .twitch-message { display:flex;align-items:baseline;gap:8px;padding:6px 10px;border-radius:6px; }
+.twitch-chat-root[data-compact="true"] .twitch-message-meta { flex:0 0 auto;margin:0; }
+.twitch-chat-root[data-compact="true"] .twitch-message-text { flex:1;min-width:0; }
+.twitch-chat-empty { padding:12px;border:1px dashed rgba(255,255,255,.18);border-radius:10px;color:var(--muted);font-size:12px;background:rgba(10,10,16,.3); }
+@keyframes message-enter { from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)} }
+@media(prefers-reduced-motion:reduce){.twitch-message{animation:none}}
