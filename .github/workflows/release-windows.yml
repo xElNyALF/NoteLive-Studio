@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - music-visualizer-update
     tags:
       - 'v*'
   workflow_dispatch:
