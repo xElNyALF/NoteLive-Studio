@@ -269,7 +269,7 @@ function publicStatus() {
     playback: playbackState,
     overlay: config.overlay,
     audioVisualizerActive: audioVisualizerState.active,
-    twitch: { ...twitchStatus, hasClientId: Boolean(config.twitchClientId), hasClientSecret: Boolean(config.twitchClientSecret), redirectUri: TWITCH_REDIRECT_URI, readChat: config.twitchReadChat !== false, alertConfig: config.twitchAlert, chatConfig: config.twitchChatOverlay, alertUrl: `http://${HOST}:${PORT}/twitch-overlay`, chatOverlayUrl: `http://${HOST}:${PORT}/twitch-chat-overlay`, history: recentTwitchChatMessages.slice(0, 30), recentAlert: recentTwitchAlert },
+    twitch: { ...twitchStatus, clientId: config.twitchClientId || '', authorized: Boolean(twitchTokens && twitchTokens.refresh_token), hasClientId: Boolean(config.twitchClientId), hasClientSecret: Boolean(config.twitchClientSecret), redirectUri: TWITCH_REDIRECT_URI, readChat: config.twitchReadChat !== false, alertConfig: config.twitchAlert, chatConfig: config.twitchChatOverlay, alertUrl: `http://${HOST}:${PORT}/twitch-overlay`, chatOverlayUrl: `http://${HOST}:${PORT}/twitch-chat-overlay`, history: recentTwitchChatMessages.slice(0, 30), recentAlert: recentTwitchAlert },
     tiktok: { ...tiktokStatus, username: tiktokStatus.username || config.tiktokUsername || '' },
     chatHistory: recentChatMessages.slice(0, 30),
     voice: {
