@@ -36,7 +36,7 @@ async function playNext() {
       audio.addEventListener('error', () => reject(new Error('No se pudo reproducir el audio.')), { once: true });
       audio.play().catch(reject);
     });
-    updateStatus('Leyendo mensajes del chat de TikTok.');
+    updateStatus('Leyendo mensajes del chat.');
   } catch (error) {
     updateStatus(error.message || 'Error en el lector de voz.');
   } finally {
@@ -79,3 +79,25 @@ events.onmessage = event => {
 };
 
 events.onerror = () => updateStatus('Reconectando con el servidor local…');
+
+
+// Twitch usa el mismo lector de voz, pero mantiene su propio flujo de eventos.
+const twitchVoiceEvents = new EventSource('/api/twitch/events');
+twitchVoiceEvents.onmessage = event => {
+  try {
+    const packet = JSON.parse(event.data);
+    if (packet.type === 'init') {
+      enabled = packet.voice?.enabled !== false;
+      configured = Boolean(packet.voice?.configured);
+      updateStatus(configured ? 'Lector de chat listo para Twitch y TikTok.' : 'Configura ElevenLabs en el panel principal.');
+    } else if (packet.type === 'voice-config') {
+      enabled = packet.voice?.enabled !== false;
+      configured = Boolean(packet.voice?.configured);
+      if (!configured) queue.length = 0;
+      updateStatus(configured ? 'Lector de chat listo para Twitch y TikTok.' : 'Configura ElevenLabs en el panel principal.');
+    } else if (packet.type === 'chat') {
+      handleChat(packet.message);
+    }
+  } catch {}
+};
+twitchVoiceEvents.onerror = () => {};
