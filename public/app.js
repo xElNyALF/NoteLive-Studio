@@ -12,6 +12,23 @@ const voiceMessage = $('#voice-message');
 const renderedMessageIds = new Set();
 let unifiedChatMessages = [];
 let unifiedChatFilter = 'all';
+let unifiedChatConfig = {
+  fontFamily: 'modern', fontSize: 15, usernameColor: '#f3f5fa', messageColor: '#e7ebf2',
+  twitchAccent: '#b58aff', tiktokAccent: '#50e5c1', backgroundOpacity: 88, maxMessages: 8,
+  showAvatars: true, showBadges: true, showPlatformBadge: true, showTimestamp: true, compact: false
+};
+let twitchVoiceCommandConfig = { enabled: true, moderatorsCanUse: false };
+
+const UNIFIED_CHAT_FONT_STACKS = {
+  modern: 'Inter, "Segoe UI", system-ui, sans-serif',
+  windows: '"Segoe UI", Tahoma, sans-serif',
+  rounded: '"Trebuchet MS", "Segoe UI", sans-serif',
+  gaming: '"Arial Black", "Segoe UI", sans-serif',
+  retro: '"Courier New", Consolas, monospace',
+  serif: 'Georgia, "Times New Roman", serif',
+  playful: '"Comic Sans MS", "Trebuchet MS", sans-serif',
+  elegant: '"Palatino Linotype", Palatino, serif'
+};
 
 function message(element, text, kind = '') {
   if (!element) return;
@@ -97,6 +114,48 @@ function renderChatMessageContent(target, item) {
     } else {
       target.appendChild(document.createTextNode(String(segment && segment.text || '')));
     }
+  }
+}
+
+function makeChatAvatar(item, className = '') {
+  const wrap = document.createElement('span');
+  wrap.className = 'chat-avatar ' + className;
+  wrap.title = item.username || 'Usuario';
+  const imageUrl = trustedChatImageUrl(item.avatarUrl, item.platform);
+  if (imageUrl) {
+    const image = document.createElement('img');
+    image.src = imageUrl;
+    image.alt = '';
+    image.loading = 'lazy';
+    image.referrerPolicy = 'no-referrer';
+    image.addEventListener('error', () => {
+      image.remove();
+      wrap.textContent = (item.username || '?').trim().charAt(0).toLocaleUpperCase() || '?';
+    }, { once: true });
+    wrap.appendChild(image);
+  } else {
+    wrap.textContent = (item.username || '?').trim().charAt(0).toLocaleUpperCase() || '?';
+  }
+  return wrap;
+}
+
+function appendUnifiedRoleBadges(container, item) {
+  if (!unifiedChatConfig.showBadges) return;
+  const roles = [];
+  if (item.isSelf) roles.push(['you', 'TÚ', 'Tu propia cuenta']);
+  if (item.isBroadcaster) roles.push(['broadcaster', '👑', 'Streamer']);
+  if (item.isModerator) roles.push(['moderator', '🛡', 'Moderador']);
+  if (item.isVip) roles.push(['vip', '💎', 'VIP']);
+  if (item.isSubscriber) roles.push(['subscriber', '⭐', 'Suscriptor']);
+  if (item.isFounder) roles.push(['founder', '🏆', 'Fundador']);
+  if (item.isPartner) roles.push(['partner', '✓', 'Partner']);
+  for (const [kind, icon, title] of roles) {
+    const badge = document.createElement('span');
+    badge.className = 'unified-role-badge role-' + kind;
+    badge.title = title;
+    badge.setAttribute('aria-label', title);
+    badge.textContent = icon;
+    container.appendChild(badge);
   }
 }
 
@@ -1184,27 +1243,47 @@ function appendTwitchChatMessage(item) {
   const empty = feed.querySelector('.empty-chat');
   if (empty) empty.remove();
   const row = document.createElement('article');
-  row.className = 'chat-item';
-  const user = document.createElement('div');
+  row.className = 'chat-item twitch-chat-message-row';
+  row.dataset.messageId = item.id;
+  row.classList.toggle('no-avatar', !unifiedChatConfig.showAvatars);
+  const avatar = makeChatAvatar(item, 'avatar-twitch');
+  const content = document.createElement('div');
+  content.className = 'twitch-chat-message-content';
+  const header = document.createElement('div');
+  header.className = 'twitch-chat-message-header';
+  const user = document.createElement('strong');
   user.className = 'chat-user';
   user.textContent = item.username || 'Usuario';
-  const time = document.createElement('div');
-  time.className = 'chat-time';
-  time.textContent = new Date(item.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  header.appendChild(user);
+  appendUnifiedRoleBadges(header, item);
+  if (unifiedChatConfig.showTimestamp) {
+    const time = document.createElement('time');
+    time.className = 'chat-time';
+    time.textContent = new Date(item.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    header.appendChild(time);
+  }
   const comment = document.createElement('div');
   comment.className = 'chat-comment';
   renderChatMessageContent(comment, item);
   const status = document.createElement('div');
   status.className = 'chat-state';
-  if (item.isModerator) status.textContent = 'MOD';
-  else if (item.isVip) status.textContent = 'VIP';
-  else if (item.isSubscriber) status.textContent = 'SUB';
-  else status.textContent = item.shouldSpeak ? '✓ Preparado para ElevenLabs' : 'No se leerá (voz desactivada o filtro antispam)';
-  row.append(user, time, comment, status);
+  if (item.shouldSpeak) status.textContent = '✓ Preparado para ElevenLabs';
+  else if (item.commandUsed) status.textContent = 'Comando de voz recibido';
+  else status.textContent = 'No se leerá (voz desactivada o filtro antispam)';
+  content.append(header, comment, status);
+  row.append(avatar, content);
   feed.appendChild(row);
   while (feed.querySelectorAll('.chat-item').length > 30) feed.querySelector('.chat-item')?.remove();
   $('#twitch-chat-count').textContent = feed.querySelectorAll('.chat-item').length + ' mensajes';
   feed.scrollTop = feed.scrollHeight;
+}
+
+function updateTwitchChatAvatar(item) {
+  if (!item || !item.id || !item.avatarUrl) return;
+  const row = Array.from($('#twitch-chat-feed').querySelectorAll('.twitch-chat-message-row')).find(node => node.dataset.messageId === item.id);
+  if (!row) return;
+  const avatar = row.querySelector('.chat-avatar');
+  if (avatar) avatar.replaceWith(makeChatAvatar({ ...item, username: row.querySelector('.chat-user')?.textContent || 'Usuario' }, 'avatar-twitch'));
 }
 
 function renderTwitchChatHistory(items = []) {
@@ -1329,6 +1408,107 @@ $('#twitch-copy-chat-url').addEventListener('click', () => copyTwitchValue('twit
   'twitch-alert-duration', 'twitch-chat-opacity', 'twitch-chat-font-size'
 ].forEach(id => $('#' + id).addEventListener('input', updateTwitchValueLabels));
 
+function readUnifiedChatConfig() {
+  return {
+    fontFamily: $('#unified-chat-font').value,
+    fontSize: Number($('#unified-chat-font-size').value),
+    usernameColor: $('#unified-chat-username-color').value,
+    messageColor: $('#unified-chat-message-color').value,
+    twitchAccent: $('#unified-chat-twitch-color').value,
+    tiktokAccent: $('#unified-chat-tiktok-color').value,
+    backgroundOpacity: Number($('#unified-chat-opacity').value),
+    maxMessages: Number($('#unified-chat-max').value),
+    showAvatars: $('#unified-chat-avatars').checked,
+    showBadges: $('#unified-chat-badges').checked,
+    showPlatformBadge: $('#unified-chat-platform-badge').checked,
+    showTimestamp: $('#unified-chat-timestamps').checked,
+    compact: $('#unified-chat-compact').checked
+  };
+}
+
+function applyUnifiedChatConfig(input = {}, updateControls = true) {
+  unifiedChatConfig = { ...unifiedChatConfig, ...(input || {}) };
+  const assign = (id, value) => {
+    const control = $('#' + id);
+    if (!control || (!updateControls && document.activeElement === control)) return;
+    if (control.type === 'checkbox') control.checked = value !== false;
+    else control.value = String(value);
+  };
+  assign('unified-chat-font', unifiedChatConfig.fontFamily);
+  assign('unified-chat-font-size', unifiedChatConfig.fontSize);
+  assign('unified-chat-username-color', unifiedChatConfig.usernameColor);
+  assign('unified-chat-message-color', unifiedChatConfig.messageColor);
+  assign('unified-chat-twitch-color', unifiedChatConfig.twitchAccent);
+  assign('unified-chat-tiktok-color', unifiedChatConfig.tiktokAccent);
+  assign('unified-chat-opacity', unifiedChatConfig.backgroundOpacity);
+  assign('unified-chat-max', unifiedChatConfig.maxMessages);
+  assign('unified-chat-avatars', unifiedChatConfig.showAvatars);
+  assign('unified-chat-badges', unifiedChatConfig.showBadges);
+  assign('unified-chat-platform-badge', unifiedChatConfig.showPlatformBadge);
+  assign('unified-chat-timestamps', unifiedChatConfig.showTimestamp);
+  assign('unified-chat-compact', unifiedChatConfig.compact);
+
+  const root = document.documentElement;
+  root.style.setProperty('--unified-chat-font', UNIFIED_CHAT_FONT_STACKS[unifiedChatConfig.fontFamily] || UNIFIED_CHAT_FONT_STACKS.modern);
+  root.style.setProperty('--unified-chat-font-size', Math.max(12, Math.min(22, Number(unifiedChatConfig.fontSize) || 15)) + 'px');
+  root.style.setProperty('--unified-chat-username-color', unifiedChatConfig.usernameColor || '#f3f5fa');
+  root.style.setProperty('--unified-chat-message-color', unifiedChatConfig.messageColor || '#e7ebf2');
+  root.style.setProperty('--unified-chat-twitch-accent', unifiedChatConfig.twitchAccent || '#b58aff');
+  root.style.setProperty('--unified-chat-tiktok-accent', unifiedChatConfig.tiktokAccent || '#50e5c1');
+  root.style.setProperty('--unified-chat-background-opacity', String(Math.max(0.25, Math.min(1, Number(unifiedChatConfig.backgroundOpacity || 88) / 100))));
+  root.dataset.unifiedChatCompact = String(unifiedChatConfig.compact === true);
+  $('#unified-chat-font-size-value').textContent = unifiedChatConfig.fontSize + ' px';
+  $('#unified-chat-opacity-value').textContent = unifiedChatConfig.backgroundOpacity + '%';
+  renderUnifiedChatFeed();
+}
+
+function readTwitchVoiceCommandConfig() {
+  return {
+    enabled: $('#unified-voice-command-enabled').checked,
+    moderatorsCanUse: $('#unified-voice-command-mods').checked
+  };
+}
+
+function applyTwitchVoiceCommandConfig(input = {}) {
+  twitchVoiceCommandConfig = { ...twitchVoiceCommandConfig, ...(input || {}) };
+  $('#unified-voice-command-enabled').checked = twitchVoiceCommandConfig.enabled !== false;
+  $('#unified-voice-command-mods').checked = twitchVoiceCommandConfig.moderatorsCanUse === true;
+}
+
+async function saveUnifiedChatSettings(kind = 'all') {
+  const messageBox = kind === 'command' ? $('#unified-voice-command-message') : $('#unified-chat-settings-message');
+  const saveButton = kind === 'command' ? $('#unified-voice-command-save') : $('#unified-chat-save-settings');
+  saveButton.disabled = true;
+  message(messageBox, 'Guardando configuración…');
+  try {
+    const response = await postJson('/api/chat/config', {
+      config: readUnifiedChatConfig(),
+      voiceCommand: readTwitchVoiceCommandConfig()
+    });
+    applyUnifiedChatConfig(response.config || readUnifiedChatConfig());
+    applyTwitchVoiceCommandConfig(response.voiceCommand || readTwitchVoiceCommandConfig());
+    message(messageBox, kind === 'command' ? 'Comando guardado.' : 'Personalización guardada para el chat y OBS.', 'success');
+  } catch (error) {
+    message(messageBox, error.message || 'No se pudo guardar la personalización.', 'error');
+  } finally {
+    saveButton.disabled = false;
+  }
+}
+
+const unifiedChatSettingsIds = [
+  'unified-chat-font', 'unified-chat-font-size', 'unified-chat-username-color',
+  'unified-chat-message-color', 'unified-chat-twitch-color', 'unified-chat-tiktok-color',
+  'unified-chat-opacity', 'unified-chat-max', 'unified-chat-avatars', 'unified-chat-badges',
+  'unified-chat-platform-badge', 'unified-chat-timestamps', 'unified-chat-compact'
+];
+for (const id of unifiedChatSettingsIds) {
+  const control = $('#' + id);
+  control.addEventListener('input', () => applyUnifiedChatConfig(readUnifiedChatConfig(), false));
+  control.addEventListener('change', () => applyUnifiedChatConfig(readUnifiedChatConfig(), false));
+}
+$('#unified-chat-save-settings').addEventListener('click', () => saveUnifiedChatSettings('all'));
+$('#unified-voice-command-save').addEventListener('click', () => saveUnifiedChatSettings('command'));
+
 const unifiedChatEvents = new EventSource('/api/chat/events');
 unifiedChatEvents.addEventListener('message', event => {
   try {
@@ -1336,15 +1516,26 @@ unifiedChatEvents.addEventListener('message', event => {
     if (packet.type === 'init') {
       unifiedChatMessages = (packet.history || []).slice(0, 120).sort((a, b) => Number(a.timestamp || 0) - Number(b.timestamp || 0));
       if (packet.overlayUrl) $('#unified-chat-url').textContent = packet.overlayUrl;
+      applyUnifiedChatConfig(packet.config || {});
+      applyTwitchVoiceCommandConfig(packet.voiceCommand || {});
       renderUnifiedPlatformStatus(packet.platforms || {});
       renderUnifiedChatFeed();
     } else if (packet.type === 'status') {
       renderUnifiedPlatformStatus(packet.platforms || {});
+    } else if (packet.type === 'config') {
+      applyUnifiedChatConfig(packet.config || {});
+      applyTwitchVoiceCommandConfig(packet.voiceCommand || {});
     } else if (packet.type === 'chat' && packet.message) {
       if (!unifiedChatMessages.some(item => item.id === packet.message.id)) {
         unifiedChatMessages.push(packet.message);
         unifiedChatMessages.sort((a, b) => Number(a.timestamp || 0) - Number(b.timestamp || 0));
         if (unifiedChatMessages.length > 120) unifiedChatMessages = unifiedChatMessages.slice(-120);
+        renderUnifiedChatFeed();
+      }
+    } else if (packet.type === 'chat-update' && packet.message) {
+      const item = unifiedChatMessages.find(entry => entry.id === packet.message.id);
+      if (item) {
+        Object.assign(item, packet.message);
         renderUnifiedChatFeed();
       }
     }
@@ -1407,33 +1598,41 @@ function renderUnifiedChatFeed() {
   const shown = filtered.slice(-80);
   shown.forEach(item => {
     const row = document.createElement('article');
-    row.className = 'chat-item unified-chat-message ' + (item.platform === 'twitch' ? 'source-twitch' : 'source-tiktok');
+    const isTwitch = item.platform === 'twitch';
+    row.className = 'chat-item unified-chat-message ' + (isTwitch ? 'source-twitch' : 'source-tiktok');
+    row.classList.toggle('no-avatar', !unifiedChatConfig.showAvatars);
     row.dataset.platform = item.platform || 'tiktok';
+    row.dataset.messageId = item.id;
+
+    const avatar = makeChatAvatar(item, isTwitch ? 'avatar-twitch' : 'avatar-tiktok');
+    const content = document.createElement('div');
+    content.className = 'unified-message-content';
 
     const header = document.createElement('div');
     header.className = 'unified-message-header';
-    const platformBadge = document.createElement('span');
-    platformBadge.className = 'unified-source-badge ' + (item.platform === 'twitch' ? 'source-twitch' : 'source-tiktok');
-    platformBadge.textContent = item.platform === 'twitch' ? 'TWITCH' : 'TIKTOK LIVE';
+    if (unifiedChatConfig.showPlatformBadge) {
+      const platformBadge = document.createElement('span');
+      platformBadge.className = 'unified-source-badge ' + (isTwitch ? 'source-twitch' : 'source-tiktok');
+      platformBadge.textContent = isTwitch ? 'TWITCH' : 'TIKTOK LIVE';
+      header.appendChild(platformBadge);
+    }
     const username = document.createElement('strong');
     username.className = 'chat-user';
     username.textContent = item.username || 'Usuario';
-    const time = document.createElement('time');
-    time.className = 'chat-time';
-    time.textContent = new Date(item.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    header.append(platformBadge, username, time);
-
-    if (item.isModerator || item.isVip || item.isSubscriber) {
-      const role = document.createElement('span');
-      role.className = 'unified-role-badge';
-      role.textContent = item.isModerator ? 'MOD' : item.isVip ? 'VIP' : 'SUB';
-      header.appendChild(role);
+    header.appendChild(username);
+    appendUnifiedRoleBadges(header, item);
+    if (unifiedChatConfig.showTimestamp) {
+      const time = document.createElement('time');
+      time.className = 'chat-time';
+      time.textContent = new Date(item.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      header.appendChild(time);
     }
 
     const body = document.createElement('div');
     body.className = 'chat-comment unified-message-body';
     renderChatMessageContent(body, item);
-    row.append(header, body);
+    content.append(header, body);
+    row.append(avatar, content);
     feed.appendChild(row);
   });
   $('#unified-chat-count').textContent = filtered.length + (filtered.length === 1 ? ' mensaje' : ' mensajes');
@@ -1455,6 +1654,8 @@ twitchEvents.addEventListener('message', event => {
       applyTwitchSettings(packet.alertConfig || {}, packet.chatConfig || {}, packet.readChat !== false);
     } else if (packet.type === 'chat') {
       appendTwitchChatMessage(packet.message);
+    } else if (packet.type === 'chat-update') {
+      updateTwitchChatAvatar(packet.message);
     } else if (packet.type === 'follow' && packet.alert?.test) {
       setTwitchMessage('Alerta de prueba enviada correctamente.', 'success');
     } else if (packet.type === 'voice-config') {

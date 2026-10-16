@@ -17,3 +17,19 @@ body { color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system
 .twitch-chat-empty { padding:12px;border:1px dashed rgba(255,255,255,.18);border-radius:10px;color:var(--muted);font-size:12px;background:rgba(10,10,16,.3); }
 @keyframes message-enter { from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)} }
 @media(prefers-reduced-motion:reduce){.twitch-message{animation:none}}
+
+/* Profile photos, role icons and emote images */
+.twitch-message { display:grid;grid-template-columns:34px minmax(0,1fr);align-items:start;gap:10px;background:rgba(12,13,20,var(--chat-background)); }
+.twitch-message-content { min-width:0; }
+.twitch-message-avatar { display:grid;place-items:center;width:34px;height:34px;overflow:hidden;border:2px solid var(--twitch-accent);border-radius:50%;background:color-mix(in srgb,var(--twitch-accent) 16%,transparent);color:var(--text);font-size:12px;font-weight:900;line-height:1; }
+.twitch-message-avatar img { display:block;width:100%;height:100%;object-fit:cover;border-radius:50%; }
+.twitch-message-meta { min-width:0; }
+.twitch-badge { display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 4px;border-radius:6px;border:1px solid color-mix(in srgb,var(--twitch-accent) 38%,transparent);color:var(--twitch-accent);background:color-mix(in srgb,var(--twitch-accent) 10%,transparent);font-size:9px;font-weight:900; }
+.twitch-badge.role-you { color:#d9ffab;border-color:rgba(181,255,122,.27);background:rgba(181,255,122,.08);font-size:7px;letter-spacing:.04em; }
+.twitch-badge.role-broadcaster { color:#ffdc9e;border-color:rgba(255,204,104,.25);background:rgba(255,204,104,.075); }
+.twitch-badge.role-moderator { color:#8ce7bd;border-color:rgba(82,210,148,.24);background:rgba(82,210,148,.08); }
+.twitch-badge.role-vip { color:#ffb0de;border-color:rgba(255,112,196,.28);background:rgba(255,112,196,.08); }
+.twitch-chat-emote { display:inline-block;width:auto;max-width:110px;max-height:38px;margin:0 2px;vertical-align:middle;object-fit:contain; }
+.twitch-chat-root[data-compact="true"] .twitch-message { display:grid;grid-template-columns:26px minmax(0,1fr);align-items:start;gap:7px;padding:6px 9px;border-radius:6px; }
+.twitch-chat-root[data-compact="true"] .twitch-message-avatar { width:26px;height:26px; }
+.twitch-chat-root[data-compact="true"] .twitch-message-meta { display:flex;align-items:center;flex-wrap:wrap;gap:5px;margin:0 0 3px; }

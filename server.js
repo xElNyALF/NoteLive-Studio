@@ -97,6 +97,53 @@ const DEFAULT_TWITCH_CHAT_CONFIG = Object.freeze({
   compact: false
 });
 
+const DEFAULT_UNIFIED_CHAT_CONFIG = Object.freeze({
+  fontFamily: 'modern',
+  fontSize: 15,
+  usernameColor: '#f3f5fa',
+  messageColor: '#e7ebf2',
+  twitchAccent: '#b58aff',
+  tiktokAccent: '#50e5c1',
+  backgroundOpacity: 88,
+  maxMessages: 8,
+  showAvatars: true,
+  showBadges: true,
+  showPlatformBadge: true,
+  showTimestamp: true,
+  compact: false
+});
+
+const UNIFIED_CHAT_FONT_FAMILIES = new Set(['modern', 'windows', 'rounded', 'gaming', 'retro', 'serif', 'playful', 'elegant']);
+
+function normalizeUnifiedChatConfig(value) {
+  const input = value && typeof value === 'object' ? value : {};
+  const validHex = candidate => typeof candidate === 'string' && /^#[0-9a-fA-F]{6}$/.test(candidate);
+  const pick = (key, fallback) => validHex(input[key]) ? input[key] : fallback;
+  return {
+    fontFamily: UNIFIED_CHAT_FONT_FAMILIES.has(input.fontFamily) ? input.fontFamily : DEFAULT_UNIFIED_CHAT_CONFIG.fontFamily,
+    fontSize: Math.round(clampNumber(input.fontSize, 12, 22, DEFAULT_UNIFIED_CHAT_CONFIG.fontSize)),
+    usernameColor: pick('usernameColor', DEFAULT_UNIFIED_CHAT_CONFIG.usernameColor),
+    messageColor: pick('messageColor', DEFAULT_UNIFIED_CHAT_CONFIG.messageColor),
+    twitchAccent: pick('twitchAccent', DEFAULT_UNIFIED_CHAT_CONFIG.twitchAccent),
+    tiktokAccent: pick('tiktokAccent', DEFAULT_UNIFIED_CHAT_CONFIG.tiktokAccent),
+    backgroundOpacity: Math.round(clampNumber(input.backgroundOpacity, 25, 100, DEFAULT_UNIFIED_CHAT_CONFIG.backgroundOpacity)),
+    maxMessages: Math.round(clampNumber(input.maxMessages, 3, 12, DEFAULT_UNIFIED_CHAT_CONFIG.maxMessages)),
+    showAvatars: input.showAvatars !== false,
+    showBadges: input.showBadges !== false,
+    showPlatformBadge: input.showPlatformBadge !== false,
+    showTimestamp: input.showTimestamp !== false,
+    compact: input.compact === true
+  };
+}
+
+function normalizeTwitchVoiceCommand(value) {
+  const input = value && typeof value === 'object' ? value : {};
+  return {
+    enabled: input.enabled !== false,
+    moderatorsCanUse: input.moderatorsCanUse === true
+  };
+}
+
 function normalizeTwitchAlertConfig(value) {
   const input = value && typeof value === 'object' ? value : {};
   const validHex = candidate => typeof candidate === 'string' && /^#[0-9a-fA-F]{6}$/.test(candidate);
@@ -160,6 +207,9 @@ let recentChatMessages = [];
 let recentUnifiedChatMessages = [];
 const duplicateChatCache = new Map();
 const userSpeechHistory = new Map();
+const twitchVoiceCommandLastUsed = new Map();
+const twitchProfileImageCache = new Map();
+const twitchProfileLookupInFlight = new Map();
 
 let playbackState = {
   connected: Boolean(tokens && tokens.refresh_token),
@@ -183,6 +233,8 @@ function loadConfig() {
     twitchReadChat: data.twitchReadChat !== false,
     twitchAlert: normalizeTwitchAlertConfig(data.twitchAlert),
     twitchChatOverlay: normalizeTwitchChatConfig(data.twitchChatOverlay),
+    unifiedChat: normalizeUnifiedChatConfig(data.unifiedChat),
+    twitchVoiceCommand: normalizeTwitchVoiceCommand(data.twitchVoiceCommand),
     elevenLabsApiKey: typeof data.elevenLabsApiKey === 'string' ? data.elevenLabsApiKey.trim() : '',
     elevenLabsVoiceId: typeof data.elevenLabsVoiceId === 'string' ? data.elevenLabsVoiceId.trim() : '',
     elevenLabsModelId: typeof data.elevenLabsModelId === 'string' ? data.elevenLabsModelId : 'eleven_multilingual_v2',
@@ -274,7 +326,7 @@ function publicStatus() {
     twitch: { ...twitchStatus, clientId: config.twitchClientId || '', authorized: Boolean(twitchTokens && twitchTokens.refresh_token), hasClientId: Boolean(config.twitchClientId), hasClientSecret: Boolean(config.twitchClientSecret), redirectUri: TWITCH_REDIRECT_URI, readChat: config.twitchReadChat !== false, alertConfig: config.twitchAlert, chatConfig: config.twitchChatOverlay, alertUrl: `http://${HOST}:${PORT}/twitch-overlay`, chatOverlayUrl: `http://${HOST}:${PORT}/twitch-chat-overlay`, history: recentTwitchChatMessages.slice(0, 30), recentAlert: recentTwitchAlert },
     tiktok: { ...tiktokStatus, username: tiktokStatus.username || config.tiktokUsername || '' },
     chatHistory: recentChatMessages.slice(0, 30),
-    unifiedChat: { history: recentUnifiedChatMessages.slice(0, 80), platforms: getUnifiedChatPlatforms(), overlayUrl: `http://${HOST}:${PORT}/unified-chat-overlay` },
+    unifiedChat: { history: recentUnifiedChatMessages.slice(0, 80), platforms: getUnifiedChatPlatforms(), config: config.unifiedChat, voiceCommand: config.twitchVoiceCommand, overlayUrl: `http://${HOST}:${PORT}/unified-chat-overlay` },
     voice: {
       hasApiKey: Boolean(config.elevenLabsApiKey),
       voiceId: config.elevenLabsVoiceId || '',
@@ -349,7 +401,7 @@ function makeTwitchChatSegments(event, fallbackComment) {
   const fragments = Array.isArray(event && event.message && event.message.fragments) ? event.message.fragments : [];
   if (!fragments.length) return [{ type: 'text', text: fallbackComment || '' }];
   return fragments.slice(0, 100).map(fragment => {
-    const text = String(fragment && fragment.text || '').replace(/[\\u0000-\\u001f\\u007f]/g, ' ').slice(0, 500);
+    const text = String(fragment && fragment.text || '').replace(/[\u0000-\u001f\u007f]/g, ' ').slice(0, 500);
     const emote = fragment && fragment.emote;
     if (fragment && fragment.type === 'emote' && emote && /^[A-Za-z0-9_-]{1,80}$/.test(String(emote.id || ''))) {
       const format = Array.isArray(emote.format) && emote.format.includes('animated') ? 'animated' : 'default';
@@ -373,6 +425,76 @@ function trustedTikTokEmoteUrl(value) {
   } catch {
     return '';
   }
+}
+
+function trustedTwitchProfileImageUrl(value) {
+  try {
+    const url = new URL(String(value || ''));
+    if (url.protocol !== 'https:') return '';
+    const host = url.hostname.toLowerCase();
+    return host === 'jtvnw.net' || host.endsWith('.jtvnw.net') ? url.href : '';
+  } catch {
+    return '';
+  }
+}
+
+async function lookupTwitchProfileImage(userId) {
+  const id = String(userId || '');
+  if (!/^\d{1,25}$/.test(id)) return '';
+  const cached = twitchProfileImageCache.get(id);
+  if (cached && cached.expiresAt > Date.now()) return cached.url || '';
+  if (twitchProfileLookupInFlight.has(id)) return twitchProfileLookupInFlight.get(id);
+
+  const request = (async () => {
+    let imageUrl = '';
+    let ttl = 5 * 60_000;
+    try {
+      const accessToken = await getValidTwitchAccessToken();
+      const response = await fetch('https://api.twitch.tv/helix/users?id=' + encodeURIComponent(id), {
+        headers: twitchApiHeaders(accessToken)
+      });
+      if (response.ok) {
+        const body = await response.json().catch(() => ({}));
+        imageUrl = trustedTwitchProfileImageUrl(body.data && body.data[0] && body.data[0].profile_image_url);
+        if (imageUrl) ttl = 60 * 60_000;
+      }
+    } catch {}
+    twitchProfileImageCache.set(id, { url: imageUrl, expiresAt: Date.now() + ttl });
+    while (twitchProfileImageCache.size > 500) twitchProfileImageCache.delete(twitchProfileImageCache.keys().next().value);
+    return imageUrl;
+  })().finally(() => twitchProfileLookupInFlight.delete(id));
+  twitchProfileLookupInFlight.set(id, request);
+  return request;
+}
+
+function requestTwitchProfileImage(item, userId) {
+  if (!item || item.avatarUrl || !userId) return;
+  lookupTwitchProfileImage(userId).then(avatarUrl => {
+    if (!avatarUrl) return;
+    item.avatarUrl = avatarUrl;
+    publishTwitchEvent({ type: 'chat-update', message: { id: item.id, avatarUrl } });
+    publishUnifiedChatEvent({ type: 'chat-update', message: { id: item.id, avatarUrl } });
+  }).catch(() => {});
+}
+
+function parseTwitchVoiceCommand(comment) {
+  const match = String(comment || '').match(/^(?:!voice|\/voice)(?:\s+([\s\S]*))?$/i);
+  if (!match) return null;
+  return { text: cleanText(match[1] || '', Math.max(30, Math.min(180, Number(config.ttsMaxChars) || 180))) };
+}
+
+function allowTwitchVoiceCommand(userId) {
+  const id = String(userId || '');
+  const now = Date.now();
+  const lastUsed = twitchVoiceCommandLastUsed.get(id) || 0;
+  if (now - lastUsed < 2500) return false;
+  twitchVoiceCommandLastUsed.set(id, now);
+  if (twitchVoiceCommandLastUsed.size > 300) {
+    for (const [key, timestamp] of twitchVoiceCommandLastUsed) {
+      if (now - timestamp > 60_000) twitchVoiceCommandLastUsed.delete(key);
+    }
+  }
+  return true;
 }
 
 function cleanText(value, maxLength = 500) {
@@ -433,6 +555,12 @@ function handleTikTokChat(data) {
   const comment = cleanText(data?.comment || data?.text || '', config.ttsMaxChars || 180);
   if (!comment) return;
   const shouldSpeak = Boolean(config.ttsEnabled !== false && config.elevenLabsApiKey && config.elevenLabsVoiceId && allowVoiceForChat(username, comment));
+  const uniqueId = cleanText(user.uniqueId || data?.uniqueId || username, 64).toLocaleLowerCase();
+  const cachedAvatar = trustedTikTokEmoteUrl(
+    user.profilePictureUrl ||
+    user.userDetails?.profilePictureUrls?.[0] ||
+    user.userDetails?.profilePictureUrls?.[1]
+  );
   const entry = {
     id: crypto.randomUUID(),
     username,
@@ -440,6 +568,10 @@ function handleTikTokChat(data) {
     platform: 'tiktok',
     messageType: 'chat',
     segments: [{ type: 'text', text: comment }],
+    avatarUrl: cachedAvatar,
+    isSelf: Boolean(tiktokStatus.username && uniqueId === tiktokStatus.username.toLocaleLowerCase()),
+    isModerator: user.isModerator === true || data?.isModerator === true,
+    isSubscriber: user.isSubscriber === true || data?.isSubscriber === true,
     speakText: shouldSpeak ? formatVoiceText(username, comment) : '',
     shouldSpeak,
     timestamp: Date.now()
@@ -461,6 +593,10 @@ function handleTikTokEmote(data) {
     platform: 'tiktok',
     messageType: 'emote',
     segments: url ? [{ type: 'image', url, alt: 'Sticker de TikTok' }] : [{ type: 'text', text: 'Envió un sticker' }],
+    avatarUrl: trustedTikTokEmoteUrl(user.profilePictureUrl || user.userDetails?.profilePictureUrls?.[0] || data?.profilePictureUrl),
+    isSelf: Boolean(tiktokStatus.username && String(user.uniqueId || data?.uniqueId || '').toLocaleLowerCase() === tiktokStatus.username.toLocaleLowerCase()),
+    isModerator: user.isModerator === true || data?.isModerator === true,
+    isSubscriber: user.isSubscriber === true || data?.isSubscriber === true,
     speakText: '',
     shouldSpeak: false,
     timestamp: Date.now()
@@ -795,34 +931,65 @@ function handleTwitchFollow(event, test = false) {
 
 function handleTwitchChat(event) {
   const username = cleanText(event && (event.chatter_user_name || event.chatter_user_login) || 'Usuario', 64) || 'Usuario';
+  const login = cleanText(event && event.chatter_user_login || username, 64).toLocaleLowerCase();
+  const chatterId = cleanText(event && event.chatter_user_id || '', 32);
   const comment = cleanText(event && event.message && event.message.text || '', Math.max(30, Math.min(180, Number(config.ttsMaxChars) || 180)));
   if (!comment) return;
-  const shouldSpeak = Boolean(
-    config.twitchReadChat !== false &&
-    config.ttsEnabled !== false &&
-    config.elevenLabsApiKey &&
-    config.elevenLabsVoiceId &&
-    allowVoiceForChat(username, comment)
-  );
+
   const badges = Array.isArray(event && event.badges) ? event.badges : [];
+  const badgeHas = id => badges.some(badge => badge && badge.set_id === id);
+  const isSelf = Boolean(chatterId && twitchTokens && String(chatterId) === String(twitchTokens.userId));
+  const isBroadcaster = badgeHas('broadcaster') || Boolean(twitchTokens && (isSelf || login === String(twitchTokens.username || '').toLocaleLowerCase()));
+  const isModerator = badgeHas('moderator');
+  const voiceCommand = parseTwitchVoiceCommand(comment);
+  let shouldSpeak = false;
+  let speakText = '';
+
+  if (voiceCommand) {
+    const canUseCommand = config.twitchVoiceCommand.enabled !== false &&
+      (isBroadcaster || (config.twitchVoiceCommand.moderatorsCanUse === true && isModerator));
+    const ttsReady = config.ttsEnabled !== false && config.elevenLabsApiKey && config.elevenLabsVoiceId;
+    if (canUseCommand && voiceCommand.text && ttsReady && allowTwitchVoiceCommand(chatterId || login)) {
+      shouldSpeak = true;
+      speakText = voiceCommand.text;
+    }
+  } else {
+    shouldSpeak = Boolean(
+      config.twitchReadChat !== false &&
+      config.ttsEnabled !== false &&
+      config.elevenLabsApiKey &&
+      config.elevenLabsVoiceId &&
+      allowVoiceForChat(username, comment)
+    );
+    speakText = shouldSpeak ? formatVoiceText(username, comment) : '';
+  }
+
+  const cachedProfile = chatterId ? twitchProfileImageCache.get(chatterId) : null;
   const item = {
     id: event && event.message_id || crypto.randomUUID(),
     username,
+    chatterId,
     comment,
     timestamp: Date.now(),
-    speakText: shouldSpeak ? formatVoiceText(username, comment) : '',
+    speakText,
     shouldSpeak,
     platform: 'twitch',
     messageType: 'chat',
     segments: makeTwitchChatSegments(event, comment),
-    isModerator: badges.some(badge => badge.set_id === 'moderator'),
-    isSubscriber: badges.some(badge => badge.set_id === 'subscriber'),
-    isVip: badges.some(badge => badge.set_id === 'vip')
+    avatarUrl: cachedProfile && cachedProfile.expiresAt > Date.now() ? cachedProfile.url : '',
+    isSelf,
+    isBroadcaster,
+    isModerator,
+    isSubscriber: badgeHas('subscriber'),
+    isVip: badgeHas('vip'),
+    isFounder: badgeHas('founder'),
+    isPartner: badgeHas('partner')
   };
   recentTwitchChatMessages.unshift(item);
   recentTwitchChatMessages = recentTwitchChatMessages.slice(0, 50);
   publishTwitchEvent({ type: 'chat', message: item });
   publishUnifiedChatMessage(item);
+  requestTwitchProfileImage(item, chatterId);
 }
 
 async function connectTwitchWebSocket(url = 'wss://eventsub.wss.twitch.tv/ws', isReconnect = false) {
@@ -1157,6 +1324,22 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (req.method === 'POST' && pathname === '/api/chat/config') {
+    try {
+      const body = await readRequestJson(req);
+      config.unifiedChat = normalizeUnifiedChatConfig(body.config || body);
+      if (body.voiceCommand && typeof body.voiceCommand === 'object') {
+        config.twitchVoiceCommand = normalizeTwitchVoiceCommand(body.voiceCommand);
+      }
+      persistJson(CONFIG_FILE, config);
+      const result = { config: config.unifiedChat, voiceCommand: config.twitchVoiceCommand };
+      publishUnifiedChatEvent({ type: 'config', ...result });
+      return sendJson(res, 200, { ok: true, ...result });
+    } catch (error) {
+      return sendJson(res, 400, { error: error.message || 'No se pudo guardar la personalización del chat.' });
+    }
+  }
+
   if (req.method === 'GET' && pathname === '/api/chat/events') {
     res.writeHead(200, {
       'Content-Type': 'text/event-stream; charset=utf-8',
@@ -1169,6 +1352,8 @@ const server = http.createServer(async (req, res) => {
       type: 'init',
       history,
       platforms: getUnifiedChatPlatforms(),
+      config: config.unifiedChat,
+      voiceCommand: config.twitchVoiceCommand,
       overlayUrl: `http://${HOST}:${PORT}/unified-chat-overlay`
     }) + '\n\n');
     unifiedChatSseClients.add(res);

@@ -289,6 +289,66 @@
             </div>
             <div aria-live="polite" class="chat-feed unified-chat-feed" id="unified-chat-feed"><div class="empty-chat">Conecta Twitch o TikTok LIVE para ver los mensajes aquí.</div></div>
           </section>
+          <section class="panel unified-customization-panel">
+            <div class="section-heading"><div class="step-number">02</div><div><h3>Personalización del chat</h3><p class="muted">Ordena el aspecto del chat general sin tocar el fondo global de NoteLive Studio. Los cambios se guardan para OBS y para el panel.</p></div></div>
+
+            <div class="unified-settings-group">
+              <div class="unified-settings-heading"><span class="settings-mini-icon">Aa</span><div><h4>Tipografía y texto</h4><p class="field-hint">Escoge el estilo de letra y cómo se muestran los nombres y mensajes.</p></div></div>
+              <div class="unified-settings-grid">
+                <div class="field-stack"><label for="unified-chat-font">Tipografía</label><select id="unified-chat-font">
+                  <option value="modern">Inter / moderna</option>
+                  <option value="windows">Segoe UI / Windows</option>
+                  <option value="rounded">Trebuchet / redondeada</option>
+                  <option value="gaming">Arial Black / gamer</option>
+                  <option value="retro">Courier New / retro</option>
+                  <option value="serif">Georgia / clásica</option>
+                  <option value="playful">Comic Sans / divertida</option>
+                  <option value="elegant">Palatino / elegante</option>
+                </select></div>
+                <div class="field-stack"><label for="unified-chat-font-size">Tamaño de texto <strong id="unified-chat-font-size-value">15 px</strong></label><input id="unified-chat-font-size" type="range" min="12" max="22" step="1" value="15"></div>
+                <div class="field-stack"><label for="unified-chat-username-color">Color del nombre</label><div class="color-picker-row"><input id="unified-chat-username-color" type="color" value="#f3f5fa"><span class="muted">Nombres de usuario</span></div></div>
+                <div class="field-stack"><label for="unified-chat-message-color">Color del mensaje</label><div class="color-picker-row"><input id="unified-chat-message-color" type="color" value="#e7ebf2"><span class="muted">Texto del comentario</span></div></div>
+              </div>
+            </div>
+
+            <div class="unified-settings-group">
+              <div class="unified-settings-heading"><span class="settings-mini-icon">◉</span><div><h4>Perfiles e identificadores</h4><p class="field-hint">Las fotos aparecen en círculo. Las insignias ayudan a distinguir al streamer, moderadores, VIP y suscriptores.</p></div></div>
+              <div class="unified-toggles-grid">
+                <label class="check-label"><input id="unified-chat-avatars" type="checkbox" checked> Fotos de perfil circulares</label>
+                <label class="check-label"><input id="unified-chat-badges" type="checkbox" checked> Insignias e iconos de rol</label>
+                <label class="check-label"><input id="unified-chat-platform-badge" type="checkbox" checked> Etiqueta TWITCH / TIKTOK LIVE</label>
+                <label class="check-label"><input id="unified-chat-timestamps" type="checkbox" checked> Mostrar hora del mensaje</label>
+              </div>
+            </div>
+
+            <div class="unified-settings-group">
+              <div class="unified-settings-heading"><span class="settings-mini-icon">✦</span><div><h4>Colores y distribución</h4><p class="field-hint">Ajusta los colores de cada plataforma, la transparencia y cuánto chat aparece en pantalla.</p></div></div>
+              <div class="unified-settings-grid">
+                <div class="field-stack"><label for="unified-chat-twitch-color">Acento de Twitch</label><div class="color-picker-row"><input id="unified-chat-twitch-color" type="color" value="#b58aff"><span class="muted">Etiquetas y borde</span></div></div>
+                <div class="field-stack"><label for="unified-chat-tiktok-color">Acento de TikTok</label><div class="color-picker-row"><input id="unified-chat-tiktok-color" type="color" value="#50e5c1"><span class="muted">Etiquetas y borde</span></div></div>
+                <div class="field-stack"><label for="unified-chat-opacity">Opacidad del fondo <strong id="unified-chat-opacity-value">88%</strong></label><input id="unified-chat-opacity" type="range" min="25" max="100" step="5" value="88"></div>
+                <div class="field-stack"><label for="unified-chat-max">Mensajes visibles en OBS</label><select id="unified-chat-max"><option value="3">3 mensajes</option><option value="4">4 mensajes</option><option value="6">6 mensajes</option><option value="8" selected>8 mensajes</option><option value="10">10 mensajes</option><option value="12">12 mensajes</option></select></div>
+              </div>
+              <div class="unified-toggles-grid single-row-toggle">
+                <label class="check-label"><input id="unified-chat-compact" type="checkbox"> Modo compacto · menos espacio</label>
+              </div>
+            </div>
+
+            <div class="unified-preview-strip"><span class="unified-preview-avatar">N</span><div class="unified-preview-copy"><div><strong>NoteViewer</strong> <span class="unified-preview-role">⭐ SUB</span><span class="unified-preview-platform">TWITCH</span></div><p>¡Se ve genial! 💜 Kappa</p></div></div>
+            <div class="button-row unified-save-row"><button class="button button-primary" id="unified-chat-save-settings" type="button">Guardar personalización</button><span class="api-message" id="unified-chat-settings-message" role="status" aria-live="polite"></span></div>
+          </section>
+
+          <section class="panel unified-voice-command-panel">
+            <div class="section-heading"><div class="step-number">03</div><div><h3>Comando de voz de Twitch</h3><p class="muted">Escribe una frase en el chat de Twitch para que ElevenLabs la lea en voz alta.</p></div></div>
+            <div class="unified-toggles-grid">
+              <label class="check-label"><input id="unified-voice-command-enabled" type="checkbox" checked> Activar el comando !voice</label>
+              <label class="check-label"><input id="unified-voice-command-mods" type="checkbox"> Permitir que los moderadores lo usen</label>
+            </div>
+            <div class="unified-command-example"><span class="tiny-label">EJEMPLO PARA ESCRIBIR EN TU CHAT</span><code>!voice Hola chat, ¿cómo están?</code><p>La voz leerá «Hola chat, ¿cómo están?» sin decir el comando. Por seguridad, por defecto solo tú puedes activarlo. Debes tener ElevenLabs configurado y la fuente de audio <code>/tts</code> activa en OBS.</p></div>
+            <p class="field-hint">Usa <code>!voice</code> como comando principal. También se detectará <code>/voice</code> si Twitch lo entrega como mensaje normal, aunque el cliente puede tratar los comandos que empiezan por «/» de otra forma.</p>
+            <div class="button-row"><button class="button button-secondary" id="unified-voice-command-save" type="button">Guardar comando</button><span class="api-message" id="unified-voice-command-message" role="status" aria-live="polite"></span></div>
+          </section>
+
           <section class="panel unified-overlay-panel">
             <div class="section-heading"><div class="step-number">02</div><div><h3>Mostrar chat general en OBS</h3><p class="muted">Añade una fuente de Navegador para mostrar los mensajes de ambas plataformas en tu directo.</p></div></div>
             <div class="url-copy-row unified-overlay-url"><div><span class="tiny-label">FUENTE DE NAVEGADOR · CHAT MULTICANAL</span><code id="unified-chat-url">http://127.0.0.1:8787/unified-chat-overlay</code><small>OBS · recomendado: 520 × 760 px · fondo transparente</small></div><div class="button-row"><button class="button button-secondary" id="unified-chat-copy-url" type="button">Copiar URL</button><button class="button button-primary" id="unified-chat-preview" type="button">Vista previa ↗</button></div></div>
@@ -480,7 +540,7 @@
         <button class="rail-item" type="button" data-view-target="voice" title="Voz de IA"><span class="rail-icon voice-rail"><svg viewBox="0 0 24 24"><path d="M3 10v4m4-8v12m4-15v18m4-12v6m4-9v12m3-8v4"/></svg></span><span>Voz IA</span></button>
         <button class="rail-item" type="button" data-view-target="obs" title="OBS Studio"><span class="rail-icon obs-rail"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="m10 8 5 2.5-5 2.5zM8 21h8m-4-4v4"/></svg></span><span>OBS</span></button>
       </nav>
-      <div class="rail-bottom"><div class="rail-label">LOOK & FEEL</div><button class="rail-item personalize-item" type="button" data-view-target="appearance" title="Personalizar"><span class="rail-icon"><svg viewBox="0 0 24 24"><path d="m14 6 4 4M4 20l5.5-1.4L20 8.1 15.9 4 5.4 14.5z"/><path d="M3 4h5M5.5 1.5v5M16 17h5M18.5 14.5v5"/></svg></span><span>Personalizar</span></button><div class="rail-version">NOTE<br><b>0.3</b></div></div>
+      <div class="rail-bottom"><div class="rail-label">LOOK & FEEL</div><button class="rail-item personalize-item" type="button" data-view-target="appearance" title="Personalizar"><span class="rail-icon"><svg viewBox="0 0 24 24"><path d="m14 6 4 4M4 20l5.5-1.4L20 8.1 15.9 4 5.4 14.5z"/><path d="M3 4h5M5.5 1.5v5M16 17h5M18.5 14.5v5"/></svg></span><span>Personalizar</span></button><div class="rail-version">NOTE<br><b>0.3.7</b></div></div>
     </aside>
   </main>
   <script src="/app.js" defer></script>
