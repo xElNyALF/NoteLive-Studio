@@ -74,7 +74,7 @@ function showBanner() {
 
   // Reinicia la secuencia: el vinilo aparece, la tarjeta se despliega y
   // después entran los textos y controles en cascada.
-  banner.classList.remove('is-visible', 'is-opening', 'is-leaving', 'is-spinning');
+  banner.classList.remove('is-visible', 'is-opening', 'is-leaving', 'is-spinning', 'is-track-changing');
   void banner.offsetWidth;
   banner.classList.add('is-visible', 'is-opening');
 
