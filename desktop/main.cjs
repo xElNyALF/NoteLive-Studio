@@ -1,6 +1,7 @@
 'use strict';
 
 const { app, BrowserWindow, dialog, shell, Menu, desktopCapturer, session, ipcMain, screen } = require('electron');
+const packageInfo = require('../package.json');
 const { autoUpdater } = require('electron-updater');
 const fs = require('node:fs');
 const path = require('node:path');

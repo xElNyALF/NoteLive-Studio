@@ -24,34 +24,6 @@ const TOKEN_URL = 'https://accounts.spotify.com/api/token';
 const CURRENTLY_PLAYING_URL = 'https://api.spotify.com/v1/me/player/currently-playing?additional_types=track,episode';
 const POLL_INTERVAL_MS = 5000;
 
-let config = loadConfig();
-let tokens = loadTokens();
-let pendingAuth = new Map();
-let pollTimer = null;
-let polling = false;
-let lastError = '';
-const sseClients = new Set();
-const tiktokSseClients = new Set();
-const overlaySseClients = new Set();
-let audioVisualizerState = { active: false, levels: Array(32).fill(0), rms: 0, updatedAt: Date.now() };
-let tiktokConnection = null;
-let tiktokStatus = { connected: false, status: 'disconnected', username: config.tiktokUsername || '', error: '' };
-let recentChatMessages = [];
-const duplicateChatCache = new Map();
-const userSpeechHistory = new Map();
-
-let playbackState = {
-  connected: Boolean(tokens && tokens.refresh_token),
-  is_playing: false,
-  track: null,
-  progress_ms: 0,
-  duration_ms: 0,
-  playback_timestamp: 0,
-  received_at: Date.now(),
-  error: ''
-};
-
-
 const DEFAULT_OVERLAY_CONFIG = Object.freeze({
   notificationEnabled: true,
   durationSeconds: 8,
@@ -95,6 +67,33 @@ function normalizeOverlayConfig(value) {
     visualizerHeight: Math.round(clampNumber(input.visualizerHeight, 20, 80, DEFAULT_OVERLAY_CONFIG.visualizerHeight))
   };
 }
+
+let config = loadConfig();
+let tokens = loadTokens();
+let pendingAuth = new Map();
+let pollTimer = null;
+let polling = false;
+let lastError = '';
+const sseClients = new Set();
+const tiktokSseClients = new Set();
+const overlaySseClients = new Set();
+let audioVisualizerState = { active: false, levels: Array(32).fill(0), rms: 0, updatedAt: Date.now() };
+let tiktokConnection = null;
+let tiktokStatus = { connected: false, status: 'disconnected', username: config.tiktokUsername || '', error: '' };
+let recentChatMessages = [];
+const duplicateChatCache = new Map();
+const userSpeechHistory = new Map();
+
+let playbackState = {
+  connected: Boolean(tokens && tokens.refresh_token),
+  is_playing: false,
+  track: null,
+  progress_ms: 0,
+  duration_ms: 0,
+  playback_timestamp: 0,
+  received_at: Date.now(),
+  error: ''
+};
 
 function loadConfig() {
   let data = {};
