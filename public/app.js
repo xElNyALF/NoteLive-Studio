@@ -181,6 +181,7 @@ function renderStatus(data) {
   else message(apiMessage, '', '');
 
   renderTikTokStatus(data.tiktok || {});
+  renderTwitchStatus(data.twitch || {});
   applyVoiceStatus(data.voice || {});
   applyMusicDesignControls(data.overlay || {});
   updateAudioCaptureUI(Boolean(data.audioVisualizerActive));
@@ -1022,3 +1023,290 @@ musicControl('music-audio-capture-toggle').addEventListener('click', () => {
 if (!window.noteLiveDesktop || !window.noteLiveDesktop.isDesktopApp) {
   musicControl('music-floating-overlay').disabled = true;
 }
+
+
+// Twitch workspace: OAuth state, follower alerts, chat browser source and optional ElevenLabs reading.
+const twitchRenderedIds = new Set();
+const twitchMessage = $('#twitch-message');
+let latestTwitchState = {};
+
+function setTwitchMessage(text, kind = '') {
+  message(twitchMessage, text, kind);
+}
+
+function renderTwitchStatus(data = {}) {
+  latestTwitchState = data;
+  const tag = $('#twitch-status-tag');
+  const title = $('#twitch-status-title');
+  const desc = $('#twitch-status-desc');
+  const disconnect = $('#twitch-disconnect');
+  const connect = $('#twitch-connect');
+  const clientIdInput = $('#twitch-client-id');
+  if (data.clientId && document.activeElement !== clientIdInput) clientIdInput.value = data.clientId;
+  if (data.redirectUri) $('#twitch-redirect-uri').textContent = data.redirectUri;
+  if (data.alertUrl) $('#twitch-alert-url').textContent = data.alertUrl;
+  if (data.chatOverlayUrl) $('#twitch-chat-url').textContent = data.chatOverlayUrl;
+  tag.classList.remove('online');
+  disconnect.hidden = !data.authorized;
+  connect.disabled = Boolean(data.connected) || !data.hasClientId || !data.hasClientSecret;
+
+  if (data.connected) {
+    title.textContent = 'Conectado a Twitch: ' + (data.username || 'tu canal');
+    desc.textContent = 'El chat y las alertas están conectados.' + (data.error ? ' Aviso: ' + data.error : '');
+    tag.textContent = 'CONNECTED';
+    tag.classList.add('online');
+  } else if (data.status === 'connecting') {
+    title.textContent = 'Conectando con Twitch…';
+    desc.textContent = data.error || 'Autorización iniciada; esperando EventSub.';
+    tag.textContent = 'CONNECTING';
+  } else if (data.status === 'reconnecting') {
+    title.textContent = 'Reconectando con Twitch…';
+    desc.textContent = data.error || 'Intentando restablecer el chat y los follows.';
+    tag.textContent = 'RECONNECTING';
+  } else if (data.status === 'error') {
+    title.textContent = 'Twitch necesita atención';
+    desc.textContent = data.error || 'Revisa los permisos de tu aplicación de Twitch.';
+    tag.textContent = 'ERROR';
+  } else {
+    title.textContent = 'Twitch no conectado';
+    desc.textContent = data.error || (data.hasClientId && data.hasClientSecret
+      ? 'Las credenciales están guardadas. Autoriza la cuenta para iniciar chat y alertas.'
+      : 'Guarda Client ID y Client Secret de tu aplicación de Twitch.');
+    tag.textContent = data.hasClientId && data.hasClientSecret ? 'READY' : 'SETUP';
+  }
+}
+
+function applyTwitchSettings(alertConfig = {}, chatConfig = {}, readChat = true) {
+  const alert = { enabled: true, style: 'card', durationSeconds: 7, accentColor: '#a970ff', title: '¡Nuevo follow!', message: '{username} ahora te sigue', soundEnabled: true, ...(alertConfig || {}) };
+  const chat = { enabled: true, accentColor: '#a970ff', backgroundOpacity: 82, maxMessages: 6, fontSize: 17, showTimestamp: false, compact: false, ...(chatConfig || {}) };
+  const assign = (id, value) => {
+    const control = $('#' + id);
+    if (control && document.activeElement !== control) {
+      if (control.type === 'checkbox') control.checked = value !== false;
+      else control.value = String(value);
+    }
+  };
+  assign('twitch-alert-enabled', alert.enabled);
+  assign('twitch-alert-sound', alert.soundEnabled);
+  assign('twitch-alert-style', alert.style);
+  assign('twitch-alert-color', alert.accentColor);
+  assign('twitch-alert-duration', alert.durationSeconds);
+  assign('twitch-alert-title', alert.title);
+  assign('twitch-alert-message', alert.message);
+  assign('twitch-chat-overlay-enabled', chat.enabled);
+  assign('twitch-chat-color', chat.accentColor);
+  assign('twitch-chat-opacity', chat.backgroundOpacity);
+  assign('twitch-chat-max', chat.maxMessages);
+  assign('twitch-chat-font-size', chat.fontSize);
+  assign('twitch-chat-timestamps', chat.showTimestamp);
+  assign('twitch-chat-compact', chat.compact);
+  assign('twitch-read-chat', readChat);
+  updateTwitchValueLabels();
+}
+
+function readTwitchAlertConfig() {
+  return {
+    enabled: $('#twitch-alert-enabled').checked,
+    soundEnabled: $('#twitch-alert-sound').checked,
+    style: $('#twitch-alert-style').value,
+    accentColor: $('#twitch-alert-color').value,
+    durationSeconds: Number($('#twitch-alert-duration').value),
+    title: $('#twitch-alert-title').value,
+    message: $('#twitch-alert-message').value
+  };
+}
+
+function readTwitchChatConfig() {
+  return {
+    enabled: $('#twitch-chat-overlay-enabled').checked,
+    accentColor: $('#twitch-chat-color').value,
+    backgroundOpacity: Number($('#twitch-chat-opacity').value),
+    maxMessages: Number($('#twitch-chat-max').value),
+    fontSize: Number($('#twitch-chat-font-size').value),
+    showTimestamp: $('#twitch-chat-timestamps').checked,
+    compact: $('#twitch-chat-compact').checked
+  };
+}
+
+function updateTwitchValueLabels() {
+  $('#twitch-alert-duration-value').textContent = $('#twitch-alert-duration').value + ' s';
+  $('#twitch-chat-opacity-value').textContent = $('#twitch-chat-opacity').value + '%';
+  $('#twitch-chat-font-size-value').textContent = $('#twitch-chat-font-size').value + ' px';
+}
+
+function appendTwitchChatMessage(item) {
+  if (!item || !item.id || twitchRenderedIds.has(item.id)) return;
+  twitchRenderedIds.add(item.id);
+  if (twitchRenderedIds.size > 300) twitchRenderedIds.clear();
+  const feed = $('#twitch-chat-feed');
+  const empty = feed.querySelector('.empty-chat');
+  if (empty) empty.remove();
+  const row = document.createElement('article');
+  row.className = 'chat-item';
+  const user = document.createElement('div');
+  user.className = 'chat-user';
+  user.textContent = item.username || 'Usuario';
+  const time = document.createElement('div');
+  time.className = 'chat-time';
+  time.textContent = new Date(item.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const comment = document.createElement('div');
+  comment.className = 'chat-comment';
+  comment.textContent = item.comment || '';
+  const status = document.createElement('div');
+  status.className = 'chat-state';
+  if (item.isModerator) status.textContent = 'MOD';
+  else if (item.isVip) status.textContent = 'VIP';
+  else if (item.isSubscriber) status.textContent = 'SUB';
+  else status.textContent = item.shouldSpeak ? '✓ Preparado para ElevenLabs' : 'No se leerá (voz desactivada o filtro antispam)';
+  row.append(user, time, comment, status);
+  feed.appendChild(row);
+  while (feed.querySelectorAll('.chat-item').length > 30) feed.querySelector('.chat-item')?.remove();
+  $('#twitch-chat-count').textContent = feed.querySelectorAll('.chat-item').length + ' mensajes';
+  feed.scrollTop = feed.scrollHeight;
+}
+
+function renderTwitchChatHistory(items = []) {
+  const feed = $('#twitch-chat-feed');
+  feed.replaceChildren();
+  twitchRenderedIds.clear();
+  if (!items.length) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-chat';
+    empty.textContent = 'Conecta tu cuenta; los mensajes nuevos aparecerán aquí.';
+    feed.appendChild(empty);
+  } else {
+    items.slice(0, 30).reverse().forEach(appendTwitchChatMessage);
+  }
+  $('#twitch-chat-count').textContent = items.length + ' mensajes';
+}
+
+function copyTwitchValue(elementId) {
+  const textToCopy = $('#' + elementId).textContent.trim();
+  navigator.clipboard.writeText(textToCopy).then(
+    () => setTwitchMessage('URL copiada: ' + textToCopy, 'success'),
+    () => setTwitchMessage('No se pudo copiar automáticamente. Selecciona y copia la URL mostrada.', 'error')
+  );
+}
+
+async function saveTwitchSettings(successMessage = 'Configuración de Twitch guardada.') {
+  const clientId = $('#twitch-client-id').value.trim();
+  const clientSecret = $('#twitch-client-secret').value.trim();
+  const payload = {
+    clientId,
+    clientSecret,
+    readChat: $('#twitch-read-chat').checked,
+    alertConfig: readTwitchAlertConfig(),
+    chatConfig: readTwitchChatConfig()
+  };
+  const response = await postJson('/api/twitch/config', payload);
+  renderTwitchStatus(response.twitch || {});
+  applyTwitchSettings(response.twitch?.alertConfig, response.twitch?.chatConfig, response.twitch?.readChat);
+  $('#twitch-client-secret').value = '';
+  setTwitchMessage(successMessage, 'success');
+  return response.twitch || {};
+}
+
+$('#twitch-save-connection').addEventListener('click', async () => {
+  const button = $('#twitch-save-connection');
+  button.disabled = true;
+  try {
+    await saveTwitchSettings('Credenciales guardadas localmente.');
+  } catch (error) {
+    setTwitchMessage(error.message || 'No se pudieron guardar las credenciales.', 'error');
+  } finally {
+    button.disabled = false;
+  }
+});
+
+$('#twitch-connect').addEventListener('click', async () => {
+  const button = $('#twitch-connect');
+  button.disabled = true;
+  try {
+    const state = await saveTwitchSettings('Configuración guardada. Abriendo Twitch para autorizar…');
+    if (!state.hasClientId || !state.hasClientSecret) {
+      setTwitchMessage('Primero pega y guarda el Client ID y el Client Secret de Twitch.', 'error');
+      return;
+    }
+    if (window.noteLiveDesktop && window.noteLiveDesktop.openTwitchLogin) {
+      await window.noteLiveDesktop.openTwitchLogin();
+    } else {
+      window.open('/twitch/connect', '_blank', 'noopener');
+    }
+  } catch (error) {
+    setTwitchMessage(error.message || 'No se pudo iniciar la conexión con Twitch.', 'error');
+  } finally {
+    button.disabled = false;
+  }
+});
+
+$('#twitch-disconnect').addEventListener('click', async () => {
+  const button = $('#twitch-disconnect');
+  button.disabled = true;
+  try {
+    const response = await postJson('/api/twitch/disconnect', {});
+    renderTwitchStatus(response.twitch || {});
+    setTwitchMessage('Twitch desconectado. Las credenciales de desarrollador se conservaron.', 'success');
+  } catch (error) {
+    setTwitchMessage(error.message || 'No se pudo desconectar Twitch.', 'error');
+  } finally {
+    button.disabled = false;
+  }
+});
+
+async function saveTwitchWithMessage(text) {
+  const button = document.activeElement instanceof HTMLButtonElement ? document.activeElement : null;
+  if (button) button.disabled = true;
+  try {
+    await saveTwitchSettings(text);
+  } catch (error) {
+    setTwitchMessage(error.message || 'No se pudieron guardar los ajustes.', 'error');
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+$('#twitch-save-alerts').addEventListener('click', () => saveTwitchWithMessage('Alerta de follow guardada.'));
+$('#twitch-save-chat').addEventListener('click', () => saveTwitchWithMessage('Ajustes de chat y lectura guardados.'));
+
+$('#twitch-test-follow').addEventListener('click', async () => {
+  try {
+    await saveTwitchSettings('Probando la alerta…');
+    await postJson('/api/twitch/test-follow', { username: 'NoukanTest' });
+    setTwitchMessage('Alerta de prueba enviada. Comprueba la fuente del overlay en OBS.', 'success');
+  } catch (error) {
+    setTwitchMessage(error.message || 'No se pudo probar la alerta.', 'error');
+  }
+});
+
+$('#twitch-preview-alert').addEventListener('click', () => window.open('/twitch-overlay', '_blank'));
+$('#twitch-preview-chat').addEventListener('click', () => window.open('/twitch-chat-overlay', '_blank'));
+$('#twitch-copy-redirect').addEventListener('click', () => copyTwitchValue('twitch-redirect-uri'));
+$('#twitch-copy-alert-url').addEventListener('click', () => copyTwitchValue('twitch-alert-url'));
+$('#twitch-copy-chat-url').addEventListener('click', () => copyTwitchValue('twitch-chat-url'));
+
+[
+  'twitch-alert-duration', 'twitch-chat-opacity', 'twitch-chat-font-size'
+].forEach(id => $('#' + id).addEventListener('input', updateTwitchValueLabels));
+
+const twitchEvents = new EventSource('/api/twitch/events');
+twitchEvents.addEventListener('message', event => {
+  try {
+    const packet = JSON.parse(event.data);
+    if (packet.type === 'init') {
+      renderTwitchStatus(packet.status || {});
+      applyTwitchSettings(packet.alertConfig || {}, packet.chatConfig || {}, packet.readChat !== false);
+      renderTwitchChatHistory(packet.history || []);
+    } else if (packet.type === 'status') {
+      renderTwitchStatus(packet.status || {});
+    } else if (packet.type === 'config') {
+      if (packet.status) renderTwitchStatus(packet.status);
+      applyTwitchSettings(packet.alertConfig || {}, packet.chatConfig || {}, packet.readChat !== false);
+    } else if (packet.type === 'chat') {
+      appendTwitchChatMessage(packet.message);
+    } else if (packet.type === 'follow' && packet.alert?.test) {
+      setTwitchMessage('Alerta de prueba enviada correctamente.', 'success');
+    } else if (packet.type === 'voice-config') {
+      applyVoiceStatus(packet.voice || {});
+    }
+  } catch {}
+});
+twitchEvents.onerror = () => {};
