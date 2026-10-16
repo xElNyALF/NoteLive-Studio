@@ -267,3 +267,59 @@ footer { max-width: 1320px; margin: 27px auto 0; padding: 15px 2px 4px; display:
   .unified-chat-feed { max-height: 58vh; }
   .unified-overlay-url .button-row { width: 100%; flex-wrap: wrap; }
 }
+
+
+/* Chat general: cleanly grouped customization controls */
+.unified-customization-panel, .unified-voice-command-panel { margin-bottom: 18px; }
+.unified-settings-group { margin: 20px 0 0; padding-top: 17px; border-top: 1px solid var(--stroke); }
+.unified-settings-heading { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 15px; }
+.settings-mini-icon { display: grid; place-items: center; flex: 0 0 32px; width: 32px; height: 32px; border: 1px solid rgba(169,112,255,.2); border-radius: 10px; color: #d2b4ff; background: rgba(169,112,255,.09); font-size: 13px; font-weight: 850; }
+.unified-settings-heading h4 { margin: 0 0 3px; font-size: 12px; letter-spacing: -.015em; }
+.unified-settings-heading .field-hint { margin: 0; }
+.unified-settings-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 15px 18px; }
+.unified-toggles-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px 16px; padding: 2px 1px; }
+.unified-toggles-grid .check-label { display: flex; align-items: center; gap: 8px; margin: 0; color: #c5ccd6; font-size: 11px; font-weight: 650; line-height: 1.5; }
+.unified-toggles-grid .check-label input { flex: 0 0 auto; accent-color: #b58aff; }
+.unified-preview-strip { display: flex; align-items: center; gap: 10px; margin-top: 22px; padding: 12px 14px; border: 1px dashed rgba(169,112,255,.26); border-radius: 13px; background: rgba(169,112,255,.035); }
+.unified-preview-avatar { display: grid; place-items: center; flex: 0 0 34px; width: 34px; height: 34px; border: 2px solid #b58aff; border-radius: 50%; color: #eadbff; background: rgba(169,112,255,.13); font-size: 13px; font-weight: 900; }
+.unified-preview-copy { min-width: 0; }
+.unified-preview-copy > div { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; color: var(--unified-chat-username-color,#f3f5fa); font-size: 11px; font-weight: 800; }
+.unified-preview-copy p { margin: 4px 0 0; color: var(--unified-chat-message-color,#e7ebf2); font-size: var(--unified-chat-font-size,15px); font-family: var(--unified-chat-font,Inter,"Segoe UI",system-ui,sans-serif); overflow-wrap: anywhere; }
+.unified-preview-role, .unified-preview-platform { padding: 2px 5px; border: 1px solid rgba(255,255,255,.12); border-radius: 5px; color: #d6c3ff; background: rgba(169,112,255,.08); font-size: 8px; font-weight: 900; }
+.unified-preview-platform { color: var(--unified-chat-twitch-accent,#b58aff); }
+.unified-save-row { align-items: center; }
+.unified-save-row .api-message, .unified-voice-command-panel .api-message { margin: 0; }
+.unified-command-example { margin-top: 15px; padding: 13px 14px; border: 1px solid rgba(169,112,255,.18); border-radius: 12px; background: rgba(169,112,255,.045); }
+.unified-command-example code { display: block; margin-top: 7px; color: #e1cfff; font: 13px ui-monospace, SFMono-Regular, Consolas, monospace; overflow-wrap: anywhere; }
+.unified-command-example p { margin: 8px 0 0; color: #a4adbb; font-size: 10px; line-height: 1.65; }
+.unified-voice-command-panel .field-hint { margin-top: 12px; }
+.unified-chat-feed { max-height: min(56vh,620px); }
+.unified-chat-feed .unified-chat-message { display: grid; grid-template-columns: 36px minmax(0,1fr); align-items: start; gap: 10px; padding: 12px; border-left: 3px solid var(--unified-chat-tiktok-accent,#50e5c1); background: rgba(6,9,13,var(--unified-chat-background-opacity,.88)); }
+.unified-chat-feed .unified-chat-message.source-twitch { border-left-color: var(--unified-chat-twitch-accent,#b58aff); }
+.unified-chat-feed .unified-chat-message.source-tiktok { border-left-color: var(--unified-chat-tiktok-accent,#50e5c1); }
+.unified-chat-feed .unified-chat-message.no-avatar { grid-template-columns: minmax(0,1fr); }
+.unified-chat-feed .unified-chat-message.no-avatar > .chat-avatar { display: none; }
+.unified-chat-feed .chat-avatar { display: grid; place-items: center; width: 36px; height: 36px; overflow: hidden; border: 2px solid var(--unified-chat-tiktok-accent,#50e5c1); border-radius: 50%; background: rgba(80,229,193,.1); color: #f3f5f7; font-size: 13px; font-weight: 900; line-height: 1; }
+.unified-chat-feed .chat-avatar.avatar-twitch { border-color: var(--unified-chat-twitch-accent,#b58aff); background: rgba(181,138,255,.12); }
+.unified-chat-feed .chat-avatar img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+.unified-chat-feed .unified-message-content { min-width: 0; }
+.unified-chat-feed .unified-message-header { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.unified-chat-feed .chat-user { color: var(--unified-chat-username-color,#f3f5fa); font-family: var(--unified-chat-font,Inter,"Segoe UI",system-ui,sans-serif); font-size: clamp(10px,calc(var(--unified-chat-font-size,15px)*.78),18px); overflow-wrap: anywhere; }
+.unified-chat-feed .unified-message-body { margin-top: 6px; color: var(--unified-chat-message-color,#e7ebf2); font-family: var(--unified-chat-font,Inter,"Segoe UI",system-ui,sans-serif); font-size: var(--unified-chat-font-size,15px); line-height: 1.45; }
+.unified-chat-feed .unified-source-badge { color: var(--unified-chat-tiktok-accent,#50e5c1); border-color: color-mix(in srgb,var(--unified-chat-tiktok-accent,#50e5c1) 38%,transparent); background: color-mix(in srgb,var(--unified-chat-tiktok-accent,#50e5c1) 10%,transparent); }
+.unified-chat-feed .unified-source-badge.source-twitch { color: var(--unified-chat-twitch-accent,#b58aff); border-color: color-mix(in srgb,var(--unified-chat-twitch-accent,#b58aff) 38%,transparent); background: color-mix(in srgb,var(--unified-chat-twitch-accent,#b58aff) 12%,transparent); }
+.unified-chat-feed .unified-role-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 4px; border: 1px solid rgba(255,255,255,.12); border-radius: 6px; color: #dfd8f1; background: rgba(255,255,255,.055); font-size: 9px; line-height: 1; }
+.unified-chat-feed .role-you { color: #d9ffab; border-color: rgba(181,255,122,.27); background: rgba(181,255,122,.08); font-size: 7px; font-weight: 950; }
+.unified-chat-feed .role-broadcaster { border-color: rgba(255,204,104,.24); background: rgba(255,204,104,.075); }
+.unified-chat-feed .role-moderator { border-color: rgba(82,210,148,.24); background: rgba(82,210,148,.08); }
+.unified-chat-feed .role-vip { border-color: rgba(255,112,196,.28); background: rgba(255,112,196,.08); }
+.unified-chat-feed .role-subscriber { border-color: rgba(255,214,102,.25); background: rgba(255,214,102,.075); }
+html[data-unified-chat-compact="true"] .unified-chat-feed .unified-chat-message { padding: 7px 9px; gap: 7px; }
+html[data-unified-chat-compact="true"] .unified-chat-feed .chat-avatar { width: 28px; height: 28px; }
+html[data-unified-chat-compact="true"] .unified-chat-feed .unified-chat-message:not(.no-avatar) { grid-template-columns: 28px minmax(0,1fr); }
+html[data-unified-chat-compact="true"] .unified-chat-feed .unified-message-body { line-height: 1.3; }
+@media (max-width: 780px) {
+  .unified-settings-grid, .unified-toggles-grid { grid-template-columns: minmax(0,1fr); }
+  .unified-settings-heading { align-items: flex-start; }
+  .unified-preview-strip { align-items: flex-start; }
+}
