@@ -11,6 +11,24 @@ const progressFill = document.querySelector('#progress-fill');
 const progressDot = document.querySelector('#progress-dot');
 const connectionWarning = document.querySelector('#connection-warning');
 const eyebrowLabel = document.querySelector('#eyebrow-label');
+const stage = document.querySelector('.stage');
+const visualizerPanel = document.querySelector('#audio-visualizer-panel');
+const visualizerCanvas = document.querySelector('#audio-visualizer-canvas');
+const visualizerContext = visualizerCanvas.getContext('2d');
+const floatingCloseButton = document.querySelector('#floating-overlay-close');
+
+let overlayConfig = {
+  notificationEnabled: true, durationSeconds: 8, style: 'vinyl', position: 'top-left',
+  accentColor: '#1ed760', cardOpacity: 92, showCover: true, showArtist: true, showProgress: true,
+  visualizerEnabled: true, visualizerStyle: 'bars', visualizerColor: '#ff6b9a',
+  visualizerSensitivity: 1.2, visualizerHeight: 34
+};
+let audioVisualizer = { active: false, levels: Array(32).fill(0), rms: 0 };
+const floatingMode = new URLSearchParams(window.location.search).get('floating') === '1';
+if (floatingMode) {
+  document.body.classList.add('floating-mode');
+  floatingCloseButton.hidden = false;
+}
 
 let lastTrackKey = null;
 let wasPlaying = false;
@@ -60,7 +78,7 @@ function showBanner() {
     }
   }, 1100);
 
-  hideTimer = setTimeout(beginBannerExit, 8500);
+  hideTimer = setTimeout(beginBannerExit, Math.max(3, Number(overlayConfig.durationSeconds) || 8) * 1000);
 }
 
 function hideBannerSoon(delay = 1200) {
@@ -131,8 +149,8 @@ function applyState(state) {
   isPlayingNow = isPlaying;
   banner.classList.toggle('is-paused', !isPlaying);
 
-  if (isPlaying && (trackChanged || justResumed || firstActiveTrack || repeatedTrackRestart)) showBanner();
-  else if (!track && !isPlaying) hideBannerSoon();
+  if (overlayConfig.notificationEnabled && isPlaying && (trackChanged || justResumed || firstActiveTrack || repeatedTrackRestart)) showBanner();
+  else if (!overlayConfig.notificationEnabled || (!track && !isPlaying)) hideBannerSoon();
 
   if (key) lastTrackKey = key;
   if (state.playback_timestamp) lastPlaybackTimestamp = state.playback_timestamp;
@@ -149,4 +167,123 @@ events.addEventListener('error', () => {
   // EventSource vuelve a conectarse automáticamente; no bloqueamos la animación.
 });
 
+function hexToRgb(hex) {
+  const match = /^#([0-9a-f]{6})$/i.exec(hex || '');
+  if (!match) return '30, 215, 96';
+  const value = parseInt(match[1], 16);
+  return ((value >> 16) & 255) + ', ' + ((value >> 8) & 255) + ', ' + (value & 255);
+}
+
+function applyOverlayConfig(config) {
+  overlayConfig = { ...overlayConfig, ...(config || {}) };
+  stage.dataset.position = overlayConfig.position || 'top-left';
+  banner.dataset.style = overlayConfig.style || 'vinyl';
+  banner.style.setProperty('--green', overlayConfig.accentColor || '#1ed760');
+  banner.style.setProperty('--green-rgb', hexToRgb(overlayConfig.accentColor || '#1ed760'));
+  banner.style.setProperty('--card-opacity', String(Math.max(40, Math.min(100, Number(overlayConfig.cardOpacity) || 92)) / 100));
+  visualizerPanel.style.setProperty('--visualizer-color', overlayConfig.visualizerColor || '#ff6b9a');
+  visualizerPanel.style.setProperty('--visualizer-rgb', hexToRgb(overlayConfig.visualizerColor || '#ff6b9a'));
+  visualizerPanel.style.setProperty('--visualizer-height', (Number(overlayConfig.visualizerHeight) || 34) + 'px');
+  banner.classList.toggle('hide-cover', overlayConfig.showCover === false);
+  banner.classList.toggle('hide-artist', overlayConfig.showArtist === false);
+  banner.classList.toggle('hide-progress', overlayConfig.showProgress === false);
+  if (!overlayConfig.notificationEnabled) {
+    clearTimeout(hideTimer);
+    beginBannerExit();
+  }
+  drawAudioVisualizer();
+}
+
+function drawAudioVisualizer() {
+  const visible = Boolean(overlayConfig.visualizerEnabled && audioVisualizer.active);
+  visualizerPanel.hidden = !visible;
+  if (!visible) return;
+  const bounds = visualizerCanvas.getBoundingClientRect();
+  if (!bounds.width || !bounds.height) return;
+  const ratio = window.devicePixelRatio || 1;
+  const targetWidth = Math.round(bounds.width * ratio);
+  const targetHeight = Math.round(bounds.height * ratio);
+  if (visualizerCanvas.width !== targetWidth || visualizerCanvas.height !== targetHeight) {
+    visualizerCanvas.width = targetWidth;
+    visualizerCanvas.height = targetHeight;
+  }
+  const ctx = visualizerContext;
+  const width = bounds.width;
+  const height = bounds.height;
+  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+  ctx.clearRect(0, 0, width, height);
+  const levels = Array.isArray(audioVisualizer.levels) ? audioVisualizer.levels : [];
+  const count = Math.min(32, levels.length);
+  const sensitivity = Math.max(0.5, Math.min(2, Number(overlayConfig.visualizerSensitivity) || 1.2));
+  const style = overlayConfig.visualizerStyle || 'bars';
+  const rgb = hexToRgb(overlayConfig.visualizerColor || '#ff6b9a');
+  ctx.lineWidth = 1.8;
+  ctx.strokeStyle = overlayConfig.visualizerColor || '#ff6b9a';
+  ctx.fillStyle = overlayConfig.visualizerColor || '#ff6b9a';
+  ctx.shadowColor = 'rgba(' + rgb + ',.55)';
+  ctx.shadowBlur = 7;
+  if (style === 'wave') {
+    ctx.beginPath();
+    for (let i = 0; i < count; i += 1) {
+      const x = count <= 1 ? 0 : i / (count - 1) * width;
+      const amplitude = Math.max(1, Math.min(height * 0.46, Number(levels[i] || 0) * sensitivity * height));
+      const y = height / 2 + Math.sin((i / Math.max(1, count - 1)) * Math.PI * 3) * amplitude;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  } else if (style === 'circle') {
+    const cx = width / 2;
+    const cy = height / 2;
+    const baseRadius = Math.max(2, Math.min(height * 0.18, width * 0.08));
+    const maxRadius = Math.max(baseRadius + 2, Math.min(height * 0.46, width * 0.18));
+    for (let i = 0; i < count; i += 1) {
+      const angle = (i / Math.max(1, count)) * Math.PI * 2 - Math.PI / 2;
+      const level = Math.max(0, Math.min(1, Number(levels[i] || 0) * sensitivity));
+      const inner = baseRadius + level * (maxRadius - baseRadius) * 0.25;
+      const outer = baseRadius + 3 + level * (maxRadius - baseRadius);
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(angle) * inner, cy + Math.sin(angle) * inner);
+      ctx.lineTo(cx + Math.cos(angle) * outer, cy + Math.sin(angle) * outer);
+      ctx.stroke();
+    }
+  } else {
+    const gap = style === 'mirror' ? 3 : 4;
+    const barWidth = Math.max(2, (width - gap * (count - 1)) / Math.max(1, count));
+    for (let i = 0; i < count; i += 1) {
+      const level = Math.max(0.025, Math.min(1, Number(levels[i] || 0) * sensitivity));
+      const barHeight = Math.max(2, level * height * 0.9);
+      const x = i * (barWidth + gap);
+      const y = style === 'mirror' ? height / 2 - barHeight / 2 : height - barHeight;
+      const radius = Math.min(3, barWidth / 2);
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') ctx.roundRect(x, y, barWidth, barHeight, radius);
+      else ctx.rect(x, y, barWidth, barHeight);
+      ctx.fill();
+    }
+  }
+}
+
+function consumeOverlayEvent(packet) {
+  if (!packet || typeof packet !== 'object') return;
+  if (packet.type === 'init' || packet.type === 'config') applyOverlayConfig(packet.config || {});
+  if (packet.type === 'init' || packet.type === 'audio') {
+    audioVisualizer = packet.audio || audioVisualizer;
+    drawAudioVisualizer();
+  }
+}
+
+const overlayEvents = new EventSource('/api/overlay/events');
+overlayEvents.addEventListener('message', event => {
+  try { consumeOverlayEvent(JSON.parse(event.data)); }
+  catch (error) { console.error('No se pudo aplicar el estado del visualizador:', error); }
+});
+
+floatingCloseButton.addEventListener('click', () => {
+  if (window.noteLiveDesktop && window.noteLiveDesktop.closeFloatingOverlay) window.noteLiveDesktop.closeFloatingOverlay();
+});
+
+window.addEventListener('resize', drawAudioVisualizer);
+setInterval(drawAudioVisualizer, 80);
+applyOverlayConfig({});
 drawProgress();
