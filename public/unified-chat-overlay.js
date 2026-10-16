@@ -2,7 +2,21 @@
 
 const list = document.querySelector('#chat-list');
 const seen = new Set();
-const maxMessages = 8;
+let chatConfig = {
+  fontFamily: 'modern', fontSize: 15, usernameColor: '#f3f5fa', messageColor: '#e7ebf2',
+  twitchAccent: '#b58aff', tiktokAccent: '#50e5c1', backgroundOpacity: 88, maxMessages: 8,
+  showAvatars: true, showBadges: true, showPlatformBadge: true, showTimestamp: true, compact: false
+};
+const fontStacks = {
+  modern: 'Inter, "Segoe UI", system-ui, sans-serif',
+  windows: '"Segoe UI", Tahoma, sans-serif',
+  rounded: '"Trebuchet MS", "Segoe UI", sans-serif',
+  gaming: '"Arial Black", "Segoe UI", sans-serif',
+  retro: '"Courier New", Consolas, monospace',
+  serif: 'Georgia, "Times New Roman", serif',
+  playful: '"Comic Sans MS", "Trebuchet MS", sans-serif',
+  elegant: '"Palatino Linotype", Palatino, serif'
+};
 
 function trustedChatImageUrl(value, platform) {
   try {
@@ -15,6 +29,42 @@ function trustedChatImageUrl(value, platform) {
   } catch {
     return '';
   }
+}
+
+function applyConfig(input = {}) {
+  chatConfig = { ...chatConfig, ...(input || {}) };
+  const root = document.documentElement;
+  root.style.setProperty('--chat-font', fontStacks[chatConfig.fontFamily] || fontStacks.modern);
+  root.style.setProperty('--chat-font-size', Math.max(12, Math.min(22, Number(chatConfig.fontSize) || 15)) + 'px');
+  root.style.setProperty('--chat-username-color', chatConfig.usernameColor || '#f3f5fa');
+  root.style.setProperty('--chat-message-color', chatConfig.messageColor || '#e7ebf2');
+  root.style.setProperty('--twitch', chatConfig.twitchAccent || '#b58aff');
+  root.style.setProperty('--tiktok', chatConfig.tiktokAccent || '#50e5c1');
+  root.style.setProperty('--chat-background-opacity', String(Math.max(0.25, Math.min(1, Number(chatConfig.backgroundOpacity || 88) / 100))));
+  document.body.dataset.compact = String(chatConfig.compact === true);
+  trimMessages();
+}
+
+function makeAvatar(item) {
+  const wrap = document.createElement('span');
+  wrap.className = 'chat-avatar ' + (item.platform === 'twitch' ? 'avatar-twitch' : 'avatar-tiktok');
+  wrap.title = item.username || 'Usuario';
+  const url = trustedChatImageUrl(item.avatarUrl, item.platform);
+  if (url) {
+    const image = document.createElement('img');
+    image.src = url;
+    image.alt = '';
+    image.loading = 'lazy';
+    image.referrerPolicy = 'no-referrer';
+    image.addEventListener('error', () => {
+      image.remove();
+      wrap.textContent = (item.username || '?').trim().charAt(0).toLocaleUpperCase() || '?';
+    }, { once: true });
+    wrap.appendChild(image);
+  } else {
+    wrap.textContent = (item.username || '?').trim().charAt(0).toLocaleUpperCase() || '?';
+  }
+  return wrap;
 }
 
 function renderMessageBody(target, item) {
@@ -42,6 +92,26 @@ function renderMessageBody(target, item) {
   }
 }
 
+function appendRoleBadges(target, item) {
+  if (chatConfig.showBadges === false) return;
+  const roles = [];
+  if (item.isSelf) roles.push(['you', 'YOU', 'Tu propia cuenta']);
+  if (item.isBroadcaster) roles.push(['broadcaster', '👑', 'Streamer']);
+  if (item.isModerator) roles.push(['moderator', '🛡', 'Moderador']);
+  if (item.isVip) roles.push(['vip', '💎', 'VIP']);
+  if (item.isSubscriber) roles.push(['subscriber', '⭐', 'Suscriptor']);
+  if (item.isFounder) roles.push(['founder', '🏆', 'Fundador']);
+  if (item.isPartner) roles.push(['partner', '✓', 'Partner']);
+  for (const [kind, icon, label] of roles) {
+    const badge = document.createElement('span');
+    badge.className = 'role-badge role-' + kind;
+    badge.title = label;
+    badge.setAttribute('aria-label', label);
+    badge.textContent = icon;
+    target.appendChild(badge);
+  }
+}
+
 function addMessage(item) {
   if (!item || !item.id || seen.has(item.id)) return;
   seen.add(item.id);
@@ -50,44 +120,73 @@ function addMessage(item) {
   if (empty) empty.remove();
 
   const row = document.createElement('article');
-  row.className = 'chat-message ' + (item.platform === 'twitch' ? 'source-twitch' : 'source-tiktok');
+  const isTwitch = item.platform === 'twitch';
+  row.className = 'chat-message ' + (isTwitch ? 'source-twitch' : 'source-tiktok');
+  if (!chatConfig.showAvatars) row.classList.add('no-avatar');
   row.dataset.platform = item.platform || 'tiktok';
+  row.dataset.messageId = item.id;
 
+  const avatar = makeAvatar(item);
+  const content = document.createElement('div');
+  content.className = 'message-content';
   const header = document.createElement('div');
   header.className = 'message-header';
-  const source = document.createElement('span');
-  source.className = 'source-badge ' + (item.platform === 'twitch' ? 'source-twitch' : 'source-tiktok');
-  source.textContent = item.platform === 'twitch' ? 'TWITCH' : 'TIKTOK LIVE';
+
+  if (chatConfig.showPlatformBadge !== false) {
+    const source = document.createElement('span');
+    source.className = 'source-badge ' + (isTwitch ? 'source-twitch' : 'source-tiktok');
+    source.textContent = isTwitch ? 'TWITCH' : 'TIKTOK LIVE';
+    header.appendChild(source);
+  }
+
   const username = document.createElement('strong');
   username.className = 'username';
   username.textContent = item.username || 'Usuario';
-  const time = document.createElement('time');
-  time.className = 'message-time';
-  time.textContent = new Date(item.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  header.append(source, username, time);
+  header.appendChild(username);
+  appendRoleBadges(header, item);
 
-  if (item.isModerator || item.isVip || item.isSubscriber) {
-    const role = document.createElement('span');
-    role.className = 'role-badge';
-    role.textContent = item.isModerator ? 'MOD' : item.isVip ? 'VIP' : 'SUB';
-    header.appendChild(role);
+  if (chatConfig.showTimestamp !== false) {
+    const time = document.createElement('time');
+    time.className = 'message-time';
+    time.textContent = new Date(item.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    header.appendChild(time);
   }
 
   const body = document.createElement('div');
   body.className = 'message-body';
   renderMessageBody(body, item);
-  row.append(header, body);
+  content.append(header, body);
+  row.append(avatar, content);
   list.appendChild(row);
+  trimMessages();
+}
 
-  while (list.querySelectorAll('.chat-message').length > maxMessages) {
-    list.querySelector('.chat-message')?.remove();
+function trimMessages() {
+  const max = Math.max(3, Math.min(12, Number(chatConfig.maxMessages) || 8));
+  while (list.querySelectorAll('.chat-message').length > max) {
+    const oldest = list.querySelector('.chat-message');
+    if (oldest) seen.delete(oldest.dataset.messageId || '');
+    oldest?.remove();
   }
 }
 
 function renderHistory(items = []) {
   list.replaceChildren();
   seen.clear();
-  items.slice(0, 120).sort((a, b) => Number(a.timestamp || 0) - Number(b.timestamp || 0)).slice(-maxMessages).forEach(addMessage);
+  items.slice(0, 120).sort((a, b) => Number(a.timestamp || 0) - Number(b.timestamp || 0)).slice(-Math.max(3, Math.min(12, Number(chatConfig.maxMessages) || 8))).forEach(addMessage);
+}
+
+function updateMessage(packet) {
+  if (!packet || !packet.id) return;
+  const row = Array.from(list.querySelectorAll('.chat-message')).find(node => node.dataset.messageId === packet.id);
+  if (!row) return;
+  if (packet.avatarUrl) {
+    const current = row.querySelector('.chat-avatar');
+    const model = { id: packet.id, username: row.querySelector('.username')?.textContent || 'Usuario', platform: row.dataset.platform, avatarUrl: packet.avatarUrl };
+    const next = makeAvatar(model);
+    if (current) current.replaceWith(next);
+    else row.prepend(next);
+  }
 }
 
 function setPlatforms(platforms = {}) {
@@ -110,12 +209,17 @@ if (!previewMode) {
     try {
       const packet = JSON.parse(event.data);
       if (packet.type === 'init') {
+        applyConfig(packet.config || {});
         setPlatforms(packet.platforms || {});
         renderHistory(packet.history || []);
+      } else if (packet.type === 'config') {
+        applyConfig(packet.config || {});
       } else if (packet.type === 'status') {
         setPlatforms(packet.platforms || {});
       } else if (packet.type === 'chat') {
         addMessage(packet.message);
+      } else if (packet.type === 'chat-update') {
+        updateMessage(packet.message);
       }
     } catch {}
   });
@@ -124,6 +228,7 @@ if (!previewMode) {
 
 if (previewMode) {
   window.addEventListener('DOMContentLoaded', () => {
+    applyConfig(chatConfig);
     if (!list.querySelector('.chat-message')) {
       addMessage({
         id: 'preview-twitch', platform: 'twitch', username: 'Moonlight', timestamp: Date.now() - 5000,
@@ -132,11 +237,11 @@ if (previewMode) {
           { type: 'text', text: '¡Qué buena partida! ' },
           { type: 'emote', text: 'Kappa', alt: 'Kappa', url: 'https://static-cdn.jtvnw.net/emoticons/v2/25/default/dark/2.0' }
         ],
-        isSubscriber: true
+        avatarUrl: '', isSubscriber: true
       });
       addMessage({
         id: 'preview-tiktok', platform: 'tiktok', username: 'Mika', timestamp: Date.now(),
-        comment: 'Vamos con todo 🔥💜', segments: [{ type: 'text', text: 'Vamos con todo 🔥💜' }]
+        comment: 'Vamos con todo 🔥💜', segments: [{ type: 'text', text: 'Vamos con todo 🔥💜' }], avatarUrl: ''
       });
     }
   }, { once: true });
