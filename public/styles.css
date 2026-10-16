@@ -231,3 +231,39 @@ footer { max-width: 1320px; margin: 27px auto 0; padding: 15px 2px 4px; display:
   .twitch-redirect-box, .twitch-url-card { align-items: flex-start; flex-direction: column; }
   .twitch-redirect-box .button, .twitch-url-card .button { width: 100%; justify-content: center; }
 }
+
+
+/* Unified chat: platform identity, readable message rows and native emotes */
+.unified-chat-intro .platform-large-icon { color: #bda4ff; background: rgba(151,107,255,.13); }
+.unified-chat-panel, .unified-overlay-panel { margin-bottom: 18px; }
+.unified-platform-status { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 0 0 18px; }
+.unified-status-chip { display: inline-flex; align-items: center; gap: 8px; padding: 7px 10px; border: 1px solid var(--stroke); border-radius: 999px; color: #a0a9b7; background: rgba(0,0,0,.17); font-size: 10px; font-weight: 750; }
+.unified-status-chip i { display: block; width: 6px; height: 6px; border-radius: 50%; background: #687281; }
+.unified-status-chip.is-connected { color: #d8ffe8; border-color: rgba(30,215,96,.25); background: rgba(30,215,96,.055); }
+.unified-status-chip.is-connected i { background: #1ed760; box-shadow: 0 0 10px rgba(30,215,96,.55); }
+.unified-chat-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 2px 0 10px; }
+.unified-chat-filters { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 5px; padding: 4px; border: 1px solid var(--stroke); border-radius: 11px; background: rgba(0,0,0,.18); }
+.unified-filter { min-height: 30px; padding: 0 11px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: #9ca6b4; font-size: 10px; font-weight: 800; cursor: pointer; transition: .16s ease; }
+.unified-filter:hover { color: #fff; background: rgba(255,255,255,.045); }
+.unified-filter.is-active { color: #e6d9ff; border-color: rgba(169,112,255,.25); background: rgba(169,112,255,.13); }
+.unified-chat-feed { max-height: min(56vh, 620px); min-height: 230px; padding: 1px 3px 3px 0; gap: 9px; }
+.unified-chat-feed .unified-chat-message { padding: 12px 13px; border-left: 3px solid #24d6a3; background: rgba(6,9,13,.49); }
+.unified-chat-feed .unified-chat-message.source-twitch { border-left-color: #a970ff; }
+.unified-chat-feed .unified-chat-message.source-tiktok { border-left-color: #24d6a3; }
+.unified-message-header { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; min-width: 0; }
+.unified-source-badge { display: inline-flex; align-items: center; justify-content: center; padding: 3px 6px; border: 1px solid rgba(36,214,163,.24); border-radius: 5px; color: #77efca; background: rgba(36,214,163,.08); font-size: 8px; line-height: 1.2; font-weight: 900; letter-spacing: .08em; white-space: nowrap; }
+.unified-source-badge.source-twitch { color: #d5b8ff; border-color: rgba(169,112,255,.31); background: rgba(169,112,255,.11); }
+.unified-message-header .chat-user { flex: 0 1 auto; min-width: 0; font-size: 12px; overflow-wrap: anywhere; }
+.unified-message-header .chat-time { margin-left: auto; }
+.unified-role-badge { padding: 2px 5px; border: 1px solid rgba(255,255,255,.12); border-radius: 5px; color: #b9c2cf; font-size: 8px; font-weight: 900; }
+.unified-message-body { margin-top: 7px; color: #e7eaf0; font-size: 12px; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
+.chat-emote { display: inline-block; max-width: 112px; max-height: 42px; width: auto; height: auto; margin: 0 2px; vertical-align: middle; object-fit: contain; border: 0; }
+.unified-overlay-url { align-items: center; flex-wrap: wrap; }
+.unified-overlay-url > div:first-child { flex: 1; min-width: 220px; }
+.unified-overlay-url .button-row { margin: 0; }
+.unified-chat-rail { color: #c3a4ff !important; background: rgba(169,112,255,.12) !important; }
+@media (max-width: 690px) {
+  .unified-chat-toolbar { align-items: flex-start; flex-direction: column; }
+  .unified-chat-feed { max-height: 58vh; }
+  .unified-overlay-url .button-row { width: 100%; flex-wrap: wrap; }
+}

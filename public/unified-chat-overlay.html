@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>NoteLive Studio · Chat general</title>
+  <link rel="stylesheet" href="/unified-chat-overlay.css">
+  <script src="/unified-chat-overlay.js" defer></script>
+</head>
+<body>
+  <main class="overlay-shell">
+    <header class="overlay-header">
+      <div class="brand-row"><span class="brand-mark">N</span><div><p class="eyebrow">NOTELIVE STUDIO</p><h1>Chat <span>multicanal</span></h1></div><span class="live-pill"><i></i> EN VIVO</span></div>
+      <div class="platform-status">
+        <span class="platform-chip is-offline" id="tiktok-state"><i></i> TikTok LIVE</span>
+        <span class="platform-chip is-offline" id="twitch-state"><i></i> Twitch</span>
+      </div>
+    </header>
+    <section class="message-list" id="chat-list" aria-live="polite" aria-label="Mensajes de Twitch y TikTok LIVE">
+      <div class="chat-empty">Esperando mensajes de Twitch o TikTok LIVE…</div>
+    </section>
+  </main>
+</body>
+</html>
