@@ -184,6 +184,8 @@ function renderHistory(items = []) {
 
 function updateMessage(packet) {
   if (!packet || !packet.id) return;
+  const cached = latestItems.find(item => item.id === packet.id);
+  if (cached) Object.assign(cached, packet);
   const row = Array.from(list.querySelectorAll('.chat-message')).find(node => node.dataset.messageId === packet.id);
   if (!row) return;
   if (packet.avatarUrl) {
