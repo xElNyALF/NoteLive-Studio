@@ -1225,7 +1225,8 @@ function renderTwitchStatus(data = {}) {
   if (data.chatOverlayUrl) $('#twitch-chat-url').textContent = data.chatOverlayUrl;
   tag.classList.remove('online');
   disconnect.hidden = !data.authorized;
-  connect.disabled = Boolean(data.connected) || !data.hasClientId || (!publicClient && !data.hasClientSecret);
+  const authInProgress = ['authorizing', 'connecting', 'reconnecting'].includes(data.status);
+  connect.disabled = Boolean(data.connected || data.authorized || authInProgress) || !data.hasClientId || (!publicClient && !data.hasClientSecret);
 
   if (data.connected) {
     title.textContent = 'Conectado a Twitch: ' + (data.username || 'tu canal');
@@ -1495,7 +1496,8 @@ $('#twitch-connect').addEventListener('click', async () => {
   } catch (error) {
     setTwitchMessage(error.message || 'No se pudo iniciar la conexión con Twitch.', 'error');
   } finally {
-    button.disabled = Boolean(latestTwitchState.connected) || !latestTwitchState.hasClientId || (!latestTwitchState.publicClient && !latestTwitchState.hasClientSecret);
+    const authInProgress = ['authorizing', 'connecting', 'reconnecting'].includes(latestTwitchState.status);
+    button.disabled = Boolean(latestTwitchState.connected || latestTwitchState.authorized || authInProgress) || !latestTwitchState.hasClientId || (!latestTwitchState.publicClient && !latestTwitchState.hasClientSecret);
   }
 });
 
