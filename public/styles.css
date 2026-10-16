@@ -323,3 +323,17 @@ html[data-unified-chat-compact="true"] .unified-chat-feed .unified-message-body 
   .unified-settings-heading { align-items: flex-start; }
   .unified-preview-strip { align-items: flex-start; }
 }
+
+.twitch-chat-feed .twitch-chat-message-row { display:grid;grid-template-columns:34px minmax(0,1fr);align-items:start;gap:9px;border-left-color:var(--unified-chat-twitch-accent,#b58aff); }
+.twitch-chat-feed .twitch-chat-message-row.no-avatar { grid-template-columns:minmax(0,1fr); }
+.twitch-chat-feed .twitch-chat-message-row.no-avatar > .chat-avatar { display:none; }
+.twitch-chat-feed .chat-avatar { display:grid;place-items:center;width:34px;height:34px;overflow:hidden;border:2px solid var(--unified-chat-twitch-accent,#b58aff);border-radius:50%;background:rgba(181,138,255,.12);color:#f5f0ff;font-size:12px;font-weight:900;line-height:1; }
+.twitch-chat-feed .chat-avatar img { display:block;width:100%;height:100%;object-fit:cover;border-radius:50%; }
+.twitch-chat-message-content { min-width:0; }
+.twitch-chat-message-header { display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:4px; }
+.twitch-chat-feed .twitch-chat-message-header .chat-user { color:var(--unified-chat-username-color,#d2b4ff); }
+.twitch-chat-feed .twitch-chat-message-header .chat-time { margin-left:auto; }
+@media (max-width:780px) {
+  .twitch-chat-feed .twitch-chat-message-row { grid-template-columns:30px minmax(0,1fr);gap:7px; }
+  .twitch-chat-feed .chat-avatar { width:30px;height:30px; }
+}
