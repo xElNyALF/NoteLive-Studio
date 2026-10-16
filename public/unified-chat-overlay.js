@@ -114,6 +114,43 @@ function appendRoleBadges(target, item) {
   }
 }
 
+function makeSourceBadge(platform) {
+  const isTwitch = platform === 'twitch';
+  const badge = document.createElement('span');
+  badge.className = 'source-badge ' + (isTwitch ? 'source-twitch' : 'source-tiktok');
+  const platformName = isTwitch ? 'Twitch' : 'TikTok LIVE';
+  badge.title = 'Mensaje enviado desde ' + platformName;
+  badge.setAttribute('aria-label', platformName);
+
+  const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  icon.setAttribute('viewBox', '0 0 24 24');
+  icon.setAttribute('aria-hidden', 'true');
+  icon.classList.add('source-platform-icon', isTwitch ? 'source-platform-icon-twitch' : 'source-platform-icon-tiktok');
+  const shape = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  if (isTwitch) {
+    shape.setAttribute('d', 'M4 3H21V15L16 20H12L9 23V20H4V3Z');
+    shape.setAttribute('fill', 'none');
+    shape.setAttribute('stroke', 'currentColor');
+    shape.setAttribute('stroke-width', '2.2');
+    shape.setAttribute('stroke-linejoin', 'round');
+    icon.appendChild(shape);
+    const lines = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    lines.setAttribute('d', 'M10 7V13M15 7V13');
+    lines.setAttribute('fill', 'none');
+    lines.setAttribute('stroke', 'currentColor');
+    lines.setAttribute('stroke-width', '2.2');
+    icon.appendChild(lines);
+  } else {
+    shape.setAttribute('d', 'M14 4v10.2a4.2 4.2 0 1 1-3-4V7.4c1.1 1.9 2.6 3 5 3.3V7.6C14.4 7 14 5.9 14 4Z');
+    shape.setAttribute('fill', 'currentColor');
+    icon.appendChild(shape);
+  }
+  const label = document.createElement('span');
+  label.textContent = isTwitch ? 'TWITCH' : 'TIKTOK LIVE';
+  badge.append(icon, label);
+  return badge;
+}
+
 function addMessage(item) {
   if (!item || !item.id || seen.has(item.id)) return;
   seen.add(item.id);
@@ -137,10 +174,7 @@ function addMessage(item) {
   header.className = 'message-header';
 
   if (chatConfig.showPlatformBadge !== false) {
-    const source = document.createElement('span');
-    source.className = 'source-badge ' + (isTwitch ? 'source-twitch' : 'source-tiktok');
-    source.textContent = isTwitch ? 'TWITCH' : 'TIKTOK LIVE';
-    header.appendChild(source);
+    header.appendChild(makeSourceBadge(item.platform));
   }
 
   const username = document.createElement('strong');

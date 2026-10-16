@@ -337,3 +337,56 @@ html[data-unified-chat-compact="true"] .unified-chat-feed .unified-message-body 
   .twitch-chat-feed .twitch-chat-message-row { grid-template-columns:30px minmax(0,1fr);gap:7px; }
   .twitch-chat-feed .chat-avatar { width:30px;height:30px; }
 }
+
+
+/* 0.3.8: clearer updates, visible platform identifiers and Kick placeholder */
+.topbar-update-button { display:inline-flex; align-items:center; justify-content:center; gap:7px; min-height:35px; padding:0 11px; border:1px solid rgba(var(--accent-rgb),.25); border-radius:11px; color:var(--accent); background:rgba(var(--accent-rgb),.07); font-size:10px; font-weight:800; white-space:nowrap; cursor:pointer; transition:background .16s ease,border-color .16s ease,opacity .16s ease; }
+.topbar-update-button:hover { background:rgba(var(--accent-rgb),.13); border-color:rgba(var(--accent-rgb),.44); }
+.topbar-update-button:disabled { opacity:.5; cursor:wait; }
+.topbar-update-button svg { width:15px; height:15px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+.update-status-panel { max-width:1320px; margin:0 auto 17px; padding:13px 15px; display:flex; align-items:center; gap:13px; border:1px solid rgba(139,123,255,.23); border-radius:14px; background:linear-gradient(110deg,rgba(139,123,255,.085),rgba(12,16,22,.83)); box-shadow:0 12px 30px rgba(0,0,0,.12); }
+.update-status-panel[hidden] { display:none !important; }
+.update-status-icon { display:grid; place-items:center; flex:0 0 36px; width:36px; height:36px; border:1px solid rgba(139,123,255,.26); border-radius:11px; color:#d7c9ff; background:rgba(139,123,255,.12); font-size:18px; font-weight:900; }
+.update-status-content { min-width:0; flex:1; }
+.update-status-title-row { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.update-status-title-row strong { font-size:12px; }
+.update-status-title-row > span { color:#9aa5b4; font-size:9px; font-weight:800; }
+.update-status-content > p { margin:3px 0 0; color:#a6afbd; font-size:10px; overflow-wrap:anywhere; }
+.update-status-actions { display:flex; flex:0 0 auto; align-items:center; gap:6px; }
+.update-status-actions .button { min-height:32px; padding:0 10px; font-size:10px; }
+.update-dismiss-button { width:30px; min-width:30px; padding:0 !important; font-size:20px !important; }
+.update-progress-wrap { margin-top:9px; }
+.update-progress-track { height:6px; overflow:hidden; border-radius:999px; background:rgba(255,255,255,.09); }
+.update-progress-track span { display:block; width:0; height:100%; border-radius:inherit; background:linear-gradient(90deg,#8b7bff,#66d6ff); box-shadow:0 0 12px rgba(139,123,255,.3); transition:width .18s ease; }
+.update-progress-wrap small { display:block; margin-top:5px; color:#c2b4ff; font-size:9px; font-weight:800; }
+.update-status-panel[data-state="ready"] { border-color:rgba(30,215,96,.28); background:linear-gradient(110deg,rgba(30,215,96,.08),rgba(12,16,22,.85)); }
+.update-status-panel[data-state="ready"] .update-status-icon { color:#83f5b0; border-color:rgba(30,215,96,.3); background:rgba(30,215,96,.1); }
+.update-status-panel[data-state="up-to-date"] .update-status-icon { color:#83f5b0; }
+.update-status-panel[data-state="error"] { border-color:rgba(255,112,130,.27); background:linear-gradient(110deg,rgba(255,88,112,.07),rgba(12,16,22,.85)); }
+.update-status-panel[data-state="error"] .update-status-icon { color:#ffabb8; border-color:rgba(255,112,130,.3); background:rgba(255,88,112,.1); }
+.update-status-panel.is-busy[data-state="checking"] .update-status-icon { animation:update-spin 1.4s linear infinite; }
+@keyframes update-spin { to { transform:rotate(360deg); } }
+.kick-rail { color:#53e19b !important; }
+.kick-rail strong { font-size:17px; line-height:1; font-weight:950; }
+.kick-rail-item { color:#93a89e; }
+.kick-rail-item:hover { color:#c1ffe0; }
+.kick-rail-item.active { color:#58e7a1; border-color:rgba(83,225,155,.2); background:rgba(83,225,155,.075); }
+.kick-rail-item.active::before { background:#58e7a1; box-shadow:0 0 13px rgba(83,225,155,.55); }
+.kick-rail-item .rail-label-wrap { display:flex; flex-direction:column; align-items:center; gap:2px; line-height:1; }
+.kick-rail-item .rail-label-wrap small { color:#58e7a1; font-size:6px; font-weight:900; letter-spacing:.08em; }
+.kick-platform-intro .platform-large-icon { color:#53e19b; border-color:rgba(83,225,155,.25); background:rgba(83,225,155,.09); font-size:27px; font-weight:950; }
+.kick-coming-soon-panel { border-color:rgba(83,225,155,.16); background:linear-gradient(105deg,rgba(83,225,155,.035),var(--panel)); }
+.kick-coming-soon-symbol { color:#53e19b; border-color:rgba(83,225,155,.25); background:rgba(83,225,155,.085); font-size:28px; font-weight:950; }
+.coming-soon-badge { display:inline-flex; padding:4px 7px; border:1px solid rgba(83,225,155,.24); border-radius:6px; color:#8ff0bc; background:rgba(83,225,155,.075); font-size:8px; font-weight:900; letter-spacing:.08em; }
+.coming-soon-panel .coming-soon-badge + h3 { margin-top:8px; }
+.unified-source-badge, .source-badge { gap:5px; }
+.source-platform-icon { display:block; width:12px; height:12px; flex:0 0 12px; overflow:visible; }
+.source-platform-icon-tiktok { fill:currentColor; stroke:none; }
+.source-platform-icon-twitch { fill:none; stroke:currentColor; stroke-linecap:round; }
+@media (max-width:760px) {
+  .topbar-update-button { gap:4px; min-height:32px; padding:0 7px; font-size:9px; }
+  .update-status-panel { align-items:flex-start; flex-wrap:wrap; padding:11px; }
+  .update-status-content { flex-basis:calc(100% - 52px); }
+  .update-status-actions { width:100%; justify-content:flex-end; }
+  .update-status-actions #update-restart-button { margin-left:auto; }
+}

@@ -28,6 +28,7 @@ if (!gotLock) {
   let updateCheckTimer = null;
   let manualUpdateCheck = false;
   let updateReady = false;
+  let currentUpdateStatus = { state: 'idle', message: '', detail: '', percent: 0, version: '' };
 
 
   function createFloatingOverlay() {
@@ -217,30 +218,70 @@ if (!gotLock) {
     if (mainWindow && !mainWindow.isDestroyed()) buildMenu();
   }
 
+  function publishUpdateStatus(payload = {}) {
+    currentUpdateStatus = { ...currentUpdateStatus, ...payload };
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('notelive:update-status', currentUpdateStatus);
+    }
+  }
+
   function checkForUpdates(manual = false) {
     manualUpdateCheck = manual;
-    if (!app.isPackaged) {
-      if (manual) dialog.showMessageBox(mainWindow, {
-        type: 'info', title: `${APP_NAME} · Actualizaciones`,
-        message: 'La búsqueda de actualizaciones solo está activa en la versión instalada.',
-        detail: 'Primero hay que compilar e instalar una versión publicada.'
+    if (updateReady) {
+      if (manual) publishUpdateStatus({
+        state: 'ready',
+        message: 'Listo, reinicia para instalar.',
+        detail: `NoteLive Studio ${currentUpdateStatus.version || app.getVersion()} ya se descargó. Puedes reiniciar ahora o hacerlo más tarde desde el menú.`,
+        percent: 100
       });
+      return;
+    }
+    if (manual) publishUpdateStatus({
+      state: 'checking',
+      message: 'Buscando actualizaciones…',
+      detail: 'Un momento, estamos comprobando si hay una versión nueva.'
+    });
+    if (!app.isPackaged) {
+      if (manual) publishUpdateStatus({
+        state: 'error',
+        message: 'La actualización solo está disponible en la versión instalada.',
+        detail: 'Abre NoteLive Studio desde su instalador para buscar versiones nuevas.'
+      });
+      manualUpdateCheck = false;
       return;
     }
     if (!updateRepositoryConfigured()) {
-      if (manual) dialog.showMessageBox(mainWindow, {
-        type: 'warning', title: `${APP_NAME} · Actualizaciones sin configurar`,
-        message: 'Falta enlazar el repositorio oficial de actualizaciones.',
-        detail: 'Comprueba update-config.json: debe incluir provider: github, owner: xElNyALF y repo: NoteLive-Studio.'
+      if (manual) publishUpdateStatus({
+        state: 'error',
+        message: 'No se pudo comprobar la actualización.',
+        detail: 'Falta configurar el repositorio oficial en update-config.json.'
       });
+      manualUpdateCheck = false;
       return;
     }
     autoUpdater.checkForUpdates().catch(error => {
-      // The updater's error event handles user-facing messages for manual checks.
       console.error(`[${APP_NAME}] No se pudo comprobar actualizaciones:`, error);
+      if (manual) publishUpdateStatus({
+        state: 'error',
+        message: 'No se pudo comprobar la actualización.',
+        detail: error.message || String(error)
+      });
+      manualUpdateCheck = false;
     });
   }
 
+  ipcMain.handle('notelive:check-for-updates', () => {
+    checkForUpdates(true);
+    return { started: true };
+  });
+
+  ipcMain.handle('notelive:get-update-status', () => currentUpdateStatus);
+
+  ipcMain.handle('notelive:restart-install-update', () => {
+    if (!updateReady) return { started: false };
+    autoUpdater.quitAndInstall();
+    return { started: true };
+  });
   function configureAutoUpdates() {
     if (!app.isPackaged || !updateRepositoryConfigured()) return;
     autoUpdater.autoDownload = true;
@@ -249,53 +290,63 @@ if (!gotLock) {
 
     autoUpdater.on('checking-for-update', () => {
       console.log(`[${APP_NAME}] Buscando actualizaciones…`);
+      if (manualUpdateCheck) publishUpdateStatus({
+        state: 'checking',
+        message: 'Buscando actualizaciones…',
+        detail: 'Comprobando la versión más reciente.'
+      });
     });
     autoUpdater.on('update-available', info => {
       console.log(`[${APP_NAME}] Actualización disponible: ${info.version}`);
-      if (manualUpdateCheck && mainWindow && !mainWindow.isDestroyed()) {
-        dialog.showMessageBox(mainWindow, {
-          type: 'info', title: `${APP_NAME} · Actualización disponible`,
-          message: `Se descargará NoteLive Studio ${info.version}.`,
-          detail: 'Puedes seguir usando la aplicación mientras se descarga. Se te ofrecerá reiniciar cuando esté lista.'
-        });
-      }
+      publishUpdateStatus({
+        state: 'downloading',
+        message: `Descargando NoteLive Studio ${info.version}…`,
+        detail: 'Puedes seguir usando la aplicación mientras se descarga.',
+        version: info.version,
+        percent: 0
+      });
     });
     autoUpdater.on('update-not-available', info => {
-      if (manualUpdateCheck && mainWindow && !mainWindow.isDestroyed()) {
-        dialog.showMessageBox(mainWindow, {
-          type: 'info', title: `${APP_NAME} · Actualizaciones`,
-          message: 'Ya tienes la versión más reciente.',
-          detail: `Versión instalada: ${app.getVersion()}`
-        });
-      }
+      if (manualUpdateCheck) publishUpdateStatus({
+        state: 'up-to-date',
+        message: 'Ya tienes la versión más reciente.',
+        detail: `Versión instalada: ${app.getVersion()}`,
+        version: info && info.version || app.getVersion(),
+        percent: 0
+      });
       manualUpdateCheck = false;
     });
     autoUpdater.on('download-progress', progress => {
-      console.log(`[${APP_NAME}] Descarga de actualización: ${Math.round(progress.percent)}%`);
+      const percent = Math.max(0, Math.min(100, Math.round(Number(progress.percent) || 0)));
+      console.log(`[${APP_NAME}] Descarga de actualización: ${percent}%`);
+      publishUpdateStatus({
+        state: 'downloading',
+        message: 'Descargando actualización…',
+        detail: `Puedes seguir usando NoteLive Studio. ${percent}% descargado.`,
+        percent,
+        transferred: Number(progress.transferred) || 0,
+        total: Number(progress.total) || 0,
+        bytesPerSecond: Number(progress.bytesPerSecond) || 0
+      });
     });
-    autoUpdater.on('update-downloaded', async info => {
+    autoUpdater.on('update-downloaded', info => {
       updateReady = true;
       refreshMenu();
-      if (!mainWindow || mainWindow.isDestroyed()) {
-        manualUpdateCheck = false;
-        return; // The update will install on the next normal app quit.
-      }
-      const result = await dialog.showMessageBox(mainWindow, {
-        type: 'info', title: `${APP_NAME} · Actualización lista`,
-        message: `NoteLive Studio ${info.version} se descargó correctamente.`,
-        detail: 'Puedes reiniciar ahora para instalarla o seguir trabajando. Si eliges más tarde, se instalará al cerrar la aplicación normalmente.',
-        buttons: ['Reiniciar y actualizar', 'Más tarde'],
-        defaultId: 0, cancelId: 1, noLink: true
+      publishUpdateStatus({
+        state: 'ready',
+        message: 'Listo, reinicia para instalar.',
+        detail: `NoteLive Studio ${info.version} se descargó correctamente. Pulsa “Reiniciar para instalar” cuando quieras aplicar la actualización.`,
+        version: info.version,
+        percent: 100
       });
-      if (result.response === 0) autoUpdater.quitAndInstall();
       manualUpdateCheck = false;
     });
     autoUpdater.on('error', error => {
       console.error(`[${APP_NAME}] Error del actualizador:`, error);
-      if (manualUpdateCheck && mainWindow && !mainWindow.isDestroyed()) {
-        dialog.showMessageBox(mainWindow, {
-          type: 'warning', title: `${APP_NAME} · Error de actualización`,
-          message: 'El actualizador encontró un problema.',
+      if (manualUpdateCheck || currentUpdateStatus.state === 'checking' || currentUpdateStatus.state === 'downloading') {
+        publishUpdateStatus({
+          state: 'error',
+          message: 'No se pudo completar la actualización.',
           detail: error.message || String(error)
         });
       }
@@ -306,7 +357,6 @@ if (!gotLock) {
     setTimeout(() => checkForUpdates(false), 12000);
     updateCheckTimer = setInterval(() => checkForUpdates(false), 6 * 60 * 60 * 1000);
   }
-
   async function waitForPanel(maxAttempts = 40) {
     for (let i = 0; i < maxAttempts; i += 1) {
       try {
