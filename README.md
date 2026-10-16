@@ -9,7 +9,7 @@ El ZIP contiene el código fuente y los scripts de compilación, no un instalado
 1. Instala Node.js 22.12 o posterior desde https://nodejs.org/ si no lo tienes.
 2. Descomprime la carpeta `notelive-studio` en una ubicación local, no dentro de una carpeta temporal.
 3. Ejecuta `BUILD-WINDOWS.bat` y espera a que termine la instalación de dependencias y la compilación. Requiere conexión a Internet la primera vez.
-4. El instalador aparecerá en `dist\NoteLive-Studio-Setup-0.3.9.exe`.
+4. El instalador aparecerá en `dist\NoteLive-Studio-Setup-0.4.0.exe`.
 5. Ejecuta el instalador y abre NoteLive Studio desde el acceso directo del escritorio o el menú Inicio. El programa instalado no necesita que abras la terminal ni que ejecutes `start.bat`.
 
 `start.bat` es para ejecutar el código fuente en modo desarrollo; no es el modo recomendado una vez instalado el programa.
