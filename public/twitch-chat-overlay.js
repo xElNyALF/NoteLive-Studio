@@ -75,7 +75,7 @@ function renderMessageContent(target, item) {
 
 function appendRoleBadges(meta, item) {
   const roles = [];
-  if (item.isSelf) roles.push(['you', 'YOU', 'Tu propia cuenta']);
+  if (item.isSelf) roles.push(['you', 'TÚ', 'Tu propia cuenta']);
   if (item.isBroadcaster) roles.push(['broadcaster', '👑', 'Streamer']);
   if (item.isModerator) roles.push(['moderator', '🛡', 'Moderador']);
   if (item.isVip) roles.push(['vip', '💎', 'VIP']);
