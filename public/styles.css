@@ -234,7 +234,7 @@ footer { max-width: 1320px; margin: 27px auto 0; padding: 15px 2px 4px; display:
 
 
 .twitch-device-flow-panel { margin: 18px 0 6px; padding: 17px; border: 1px solid rgba(169,112,255,.34); border-radius: 14px; background: linear-gradient(135deg, rgba(169,112,255,.10), rgba(0,0,0,.12)); }
-.twitch-device-flow-panel[hidden], #twitch-public-client-note[hidden], #twitch-legacy-config[hidden] { display: none !important; }
+.twitch-device-flow-panel[hidden], #twitch-public-client-note[hidden], #twitch-legacy-config[hidden], #twitch-save-connection[hidden] { display: none !important; }
 .device-flow-copy strong { display: block; margin-bottom: 5px; color: var(--text); font-size: 13px; }
 .device-flow-copy p { margin: 0; font-size: 11px; line-height: 1.55; }
 .twitch-device-code-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin: 14px 0; padding: 13px 14px; border: 1px solid var(--stroke); border-radius: 11px; background: rgba(0,0,0,.24); }
