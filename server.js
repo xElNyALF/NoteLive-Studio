@@ -197,7 +197,7 @@ function cleanConfigText(value, maxLength, fallback) {
 let config = loadConfig();
 let tokens = loadTokens();
 let twitchTokens = loadTwitchTokens();
-if (USE_TWITCH_PUBLIC_CLIENT && twitchTokens && twitchTokens.clientId && twitchTokens.clientId !== config.twitchClientId) {
+if (USE_TWITCH_PUBLIC_CLIENT && twitchTokens && twitchTokens.clientId !== config.twitchClientId) {
   // A token from a different Twitch application cannot be refreshed with this public Client ID.
   try { fs.unlinkSync(TWITCH_TOKENS_FILE); } catch {}
   twitchTokens = null;
@@ -1280,7 +1280,7 @@ async function pollTwitchDeviceAuthorization(flow) {
     if (errorCode === 'authorization_declined' || errorCode === 'access_denied') {
       throw new Error('La autorización fue rechazada en Twitch. Puedes intentarlo de nuevo.');
     }
-    if (errorCode === 'expired_token' || errorCode === 'invalid device code') {
+    if (errorCode === 'expired_token' || errorCode.includes('expired') || errorCode.includes('invalid device code')) {
       throw new Error('El código de Twitch venció. Pulsa “Conectar cuenta Twitch” para generar otro.');
     }
     throw new Error(cleanText(body.message || body.error_description || body.error || 'Twitch no pudo completar la autorización.', 220));
@@ -1429,6 +1429,9 @@ const server = http.createServer(async (req, res) => {
       }
       if (twitchTokens && twitchTokens.refresh_token) {
         return sendJson(res, 409, { error: 'Ya hay una cuenta de Twitch autorizada. Desconéctala antes de cambiar de cuenta.' });
+      }
+      if (pendingTwitchDeviceAuth && Date.now() < pendingTwitchDeviceAuth.expiresAt) {
+        return sendJson(res, 409, { error: 'Ya hay un código de autorización activo. Termina ese proceso o cancélalo primero.' });
       }
       const response = await fetch('https://id.twitch.tv/oauth2/device', {
         method: 'POST',
