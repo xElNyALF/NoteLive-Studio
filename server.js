@@ -427,6 +427,76 @@ function trustedTikTokEmoteUrl(value) {
   }
 }
 
+function trustedTwitchProfileImageUrl(value) {
+  try {
+    const url = new URL(String(value || ''));
+    if (url.protocol !== 'https:') return '';
+    const host = url.hostname.toLowerCase();
+    return host === 'jtvnw.net' || host.endsWith('.jtvnw.net') ? url.href : '';
+  } catch {
+    return '';
+  }
+}
+
+async function lookupTwitchProfileImage(userId) {
+  const id = String(userId || '');
+  if (!/^\\d{1,25}$/.test(id)) return '';
+  const cached = twitchProfileImageCache.get(id);
+  if (cached && cached.expiresAt > Date.now()) return cached.url || '';
+  if (twitchProfileLookupInFlight.has(id)) return twitchProfileLookupInFlight.get(id);
+
+  const request = (async () => {
+    let imageUrl = '';
+    let ttl = 5 * 60_000;
+    try {
+      const accessToken = await getValidTwitchAccessToken();
+      const response = await fetch('https://api.twitch.tv/helix/users?id=' + encodeURIComponent(id), {
+        headers: twitchApiHeaders(accessToken)
+      });
+      if (response.ok) {
+        const body = await response.json().catch(() => ({}));
+        imageUrl = trustedTwitchProfileImageUrl(body.data && body.data[0] && body.data[0].profile_image_url);
+        if (imageUrl) ttl = 60 * 60_000;
+      }
+    } catch {}
+    twitchProfileImageCache.set(id, { url: imageUrl, expiresAt: Date.now() + ttl });
+    while (twitchProfileImageCache.size > 500) twitchProfileImageCache.delete(twitchProfileImageCache.keys().next().value);
+    return imageUrl;
+  })().finally(() => twitchProfileLookupInFlight.delete(id));
+  twitchProfileLookupInFlight.set(id, request);
+  return request;
+}
+
+function requestTwitchProfileImage(item, userId) {
+  if (!item || item.avatarUrl || !userId) return;
+  lookupTwitchProfileImage(userId).then(avatarUrl => {
+    if (!avatarUrl) return;
+    item.avatarUrl = avatarUrl;
+    publishTwitchEvent({ type: 'chat-update', message: { id: item.id, avatarUrl } });
+    publishUnifiedChatEvent({ type: 'chat-update', message: { id: item.id, avatarUrl } });
+  }).catch(() => {});
+}
+
+function parseTwitchVoiceCommand(comment) {
+  const match = String(comment || '').match(/^(?:!voice|\\/voice)(?:\\s+([\\s\\S]*))?$/i);
+  if (!match) return null;
+  return { text: cleanText(match[1] || '', Math.max(30, Math.min(180, Number(config.ttsMaxChars) || 180))) };
+}
+
+function allowTwitchVoiceCommand(userId) {
+  const id = String(userId || '');
+  const now = Date.now();
+  const lastUsed = twitchVoiceCommandLastUsed.get(id) || 0;
+  if (now - lastUsed < 2500) return false;
+  twitchVoiceCommandLastUsed.set(id, now);
+  if (twitchVoiceCommandLastUsed.size > 300) {
+    for (const [key, timestamp] of twitchVoiceCommandLastUsed) {
+      if (now - timestamp > 60_000) twitchVoiceCommandLastUsed.delete(key);
+    }
+  }
+  return true;
+}
+
 function cleanText(value, maxLength = 500) {
   return String(value ?? '')
     .replace(/[\u0000-\u001f\u007f]/g, ' ')
@@ -485,6 +555,12 @@ function handleTikTokChat(data) {
   const comment = cleanText(data?.comment || data?.text || '', config.ttsMaxChars || 180);
   if (!comment) return;
   const shouldSpeak = Boolean(config.ttsEnabled !== false && config.elevenLabsApiKey && config.elevenLabsVoiceId && allowVoiceForChat(username, comment));
+  const uniqueId = cleanText(user.uniqueId || data?.uniqueId || username, 64).toLocaleLowerCase();
+  const cachedAvatar = trustedTikTokEmoteUrl(
+    user.profilePictureUrl ||
+    user.userDetails?.profilePictureUrls?.[0] ||
+    user.userDetails?.profilePictureUrls?.[1]
+  );
   const entry = {
     id: crypto.randomUUID(),
     username,
@@ -492,6 +568,10 @@ function handleTikTokChat(data) {
     platform: 'tiktok',
     messageType: 'chat',
     segments: [{ type: 'text', text: comment }],
+    avatarUrl: cachedAvatar,
+    isSelf: Boolean(tiktokStatus.username && uniqueId === tiktokStatus.username.toLocaleLowerCase()),
+    isModerator: user.isModerator === true || data?.isModerator === true,
+    isSubscriber: user.isSubscriber === true || data?.isSubscriber === true,
     speakText: shouldSpeak ? formatVoiceText(username, comment) : '',
     shouldSpeak,
     timestamp: Date.now()
@@ -513,6 +593,10 @@ function handleTikTokEmote(data) {
     platform: 'tiktok',
     messageType: 'emote',
     segments: url ? [{ type: 'image', url, alt: 'Sticker de TikTok' }] : [{ type: 'text', text: 'Envió un sticker' }],
+    avatarUrl: trustedTikTokEmoteUrl(user.profilePictureUrl || user.userDetails?.profilePictureUrls?.[0] || data?.profilePictureUrl),
+    isSelf: Boolean(tiktokStatus.username && String(user.uniqueId || data?.uniqueId || '').toLocaleLowerCase() === tiktokStatus.username.toLocaleLowerCase()),
+    isModerator: user.isModerator === true || data?.isModerator === true,
+    isSubscriber: user.isSubscriber === true || data?.isSubscriber === true,
     speakText: '',
     shouldSpeak: false,
     timestamp: Date.now()
@@ -847,34 +931,65 @@ function handleTwitchFollow(event, test = false) {
 
 function handleTwitchChat(event) {
   const username = cleanText(event && (event.chatter_user_name || event.chatter_user_login) || 'Usuario', 64) || 'Usuario';
+  const login = cleanText(event && event.chatter_user_login || username, 64).toLocaleLowerCase();
+  const chatterId = cleanText(event && event.chatter_user_id || '', 32);
   const comment = cleanText(event && event.message && event.message.text || '', Math.max(30, Math.min(180, Number(config.ttsMaxChars) || 180)));
   if (!comment) return;
-  const shouldSpeak = Boolean(
-    config.twitchReadChat !== false &&
-    config.ttsEnabled !== false &&
-    config.elevenLabsApiKey &&
-    config.elevenLabsVoiceId &&
-    allowVoiceForChat(username, comment)
-  );
+
   const badges = Array.isArray(event && event.badges) ? event.badges : [];
+  const badgeHas = id => badges.some(badge => badge && badge.set_id === id);
+  const isSelf = Boolean(chatterId && twitchTokens && String(chatterId) === String(twitchTokens.userId));
+  const isBroadcaster = badgeHas('broadcaster') || Boolean(twitchTokens && (isSelf || login === String(twitchTokens.username || '').toLocaleLowerCase()));
+  const isModerator = badgeHas('moderator');
+  const voiceCommand = parseTwitchVoiceCommand(comment);
+  let shouldSpeak = false;
+  let speakText = '';
+
+  if (voiceCommand) {
+    const canUseCommand = config.twitchVoiceCommand.enabled !== false &&
+      (isBroadcaster || (config.twitchVoiceCommand.moderatorsCanUse === true && isModerator));
+    const ttsReady = config.ttsEnabled !== false && config.elevenLabsApiKey && config.elevenLabsVoiceId;
+    if (canUseCommand && voiceCommand.text && ttsReady && allowTwitchVoiceCommand(chatterId || login)) {
+      shouldSpeak = true;
+      speakText = voiceCommand.text;
+    }
+  } else {
+    shouldSpeak = Boolean(
+      config.twitchReadChat !== false &&
+      config.ttsEnabled !== false &&
+      config.elevenLabsApiKey &&
+      config.elevenLabsVoiceId &&
+      allowVoiceForChat(username, comment)
+    );
+    speakText = shouldSpeak ? formatVoiceText(username, comment) : '';
+  }
+
+  const cachedProfile = chatterId ? twitchProfileImageCache.get(chatterId) : null;
   const item = {
     id: event && event.message_id || crypto.randomUUID(),
     username,
+    chatterId,
     comment,
     timestamp: Date.now(),
-    speakText: shouldSpeak ? formatVoiceText(username, comment) : '',
+    speakText,
     shouldSpeak,
     platform: 'twitch',
     messageType: 'chat',
     segments: makeTwitchChatSegments(event, comment),
-    isModerator: badges.some(badge => badge.set_id === 'moderator'),
-    isSubscriber: badges.some(badge => badge.set_id === 'subscriber'),
-    isVip: badges.some(badge => badge.set_id === 'vip')
+    avatarUrl: cachedProfile && cachedProfile.expiresAt > Date.now() ? cachedProfile.url : '',
+    isSelf,
+    isBroadcaster,
+    isModerator,
+    isSubscriber: badgeHas('subscriber'),
+    isVip: badgeHas('vip'),
+    isFounder: badgeHas('founder'),
+    isPartner: badgeHas('partner')
   };
   recentTwitchChatMessages.unshift(item);
   recentTwitchChatMessages = recentTwitchChatMessages.slice(0, 50);
   publishTwitchEvent({ type: 'chat', message: item });
   publishUnifiedChatMessage(item);
+  requestTwitchProfileImage(item, chatterId);
 }
 
 async function connectTwitchWebSocket(url = 'wss://eventsub.wss.twitch.tv/ws', isReconnect = false) {
